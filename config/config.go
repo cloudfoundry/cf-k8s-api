@@ -1,4 +1,4 @@
-package cf_k8s_api
+package config
 
 import (
 	"encoding/json"
@@ -6,10 +6,8 @@ import (
 )
 
 type Config struct {
-	ServerURL string `json:serverURL`
-}
-var defaults = Config{
-	ServerURL: "https://api.example.org",
+	ServerURL string `json:"serverURL"`
+	ServerPort int `json:"serverPort"`
 }
 
 func LoadConfigFromPath(path string, config *Config) error {
@@ -18,7 +16,6 @@ func LoadConfigFromPath(path string, config *Config) error {
 		return err
 	}
 	defer configFile.Close()
-
 	decoder := json.NewDecoder(configFile)
 	return decoder.Decode(config)
 }
