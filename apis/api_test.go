@@ -50,10 +50,6 @@ func testRootV3API(t *testing.T, when spec.G, it spec.S) {
 			contentTypeHeader := rr.Header().Get("Content-Type")
 			Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
 		})
-		it("has a non-empty body", func() {
-			responseBody := rr.Body.Bytes()
-			Expect(responseBody).NotTo(BeEmpty())
-		})
 		it("matches the expected response body format", func() {
 			expectedBody := `{"links":{"self":{"href":"` + defaultServerURL + `/v3"}}}`
 			Expect(rr.Body.String()).Should(Equal(expectedBody), "Response body matches RootV3GetHandler response:")
