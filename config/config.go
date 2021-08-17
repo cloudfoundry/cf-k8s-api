@@ -10,12 +10,14 @@ type Config struct {
 	ServerPort int `json:"serverPort"`
 }
 
-func LoadConfigFromPath(path string, config *Config) error {
+func LoadConfigFromPath(path string) (*Config,error) {
+	var config Config
 	configFile, err := os.Open(path)
 	if err != nil {
-		return err
+		return &config, err
 	}
 	defer configFile.Close()
 	decoder := json.NewDecoder(configFile)
-	return decoder.Decode(config)
+	err = decoder.Decode(&config)
+	return &config, err
 }

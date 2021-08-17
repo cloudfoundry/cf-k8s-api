@@ -23,24 +23,27 @@ func testRootV3API(t *testing.T, when spec.G, it spec.S) {
 	Expect := NewWithT(t).Expect
 
 	when("the v3 GET endpoint returns successfully", func() {
-		// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
-		// pass 'nil' as the third parameter.
-		req, err := http.NewRequest("GET", "/v3", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
+		var rr httptest.ResponseRecorder
+		it.Before(func() {
+			// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
+			// pass 'nil' as the third parameter.
+			req, err := http.NewRequest("GET", "/v3", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
-		rr := httptest.NewRecorder()
-		apiHandler := apis.RootV3Handler{
-			ServerURL: defaultServerURL,
-		}
+			// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
+			rr := httptest.NewRecorder()
+			apiHandler := apis.RootV3Handler{
+				ServerURL: defaultServerURL,
+			}
 
-		handler := http.HandlerFunc(apiHandler.RootV3GetHandler)
+			handler := http.HandlerFunc(apiHandler.RootV3GetHandler)
 
-		// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
-		// directly and pass in our Request and ResponseRecorder.
-		handler.ServeHTTP(rr, req)
+			// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
+			// directly and pass in our Request and ResponseRecorder.
+			handler.ServeHTTP(rr, req)
+		})
 
 		it("returns status 200 OK", func() {
 			httpStatus := rr.Code
@@ -62,24 +65,27 @@ func testRootAPI(t *testing.T, when spec.G, it spec.S) {
 	Expect := NewWithT(t).Expect
 
 	when("the root GET endpoint returns successfully", func() {
-		// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
-		// pass 'nil' as the third parameter.
-		req, err := http.NewRequest("GET", "/", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
+		var rr httptest.ResponseRecorder
+		it.Before(func() {
+			// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
+			// pass 'nil' as the third parameter.
+			req, err := http.NewRequest("GET", "/", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
-		rr := httptest.NewRecorder()
-		apiHandler := apis.RootHandler{
-			ServerURL: defaultServerURL,
-		}
+			// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
+			rr := httptest.NewRecorder()
+			apiHandler := apis.RootHandler{
+				ServerURL: defaultServerURL,
+			}
 
-		handler := http.HandlerFunc(apiHandler.RootGetHandler)
+			handler := http.HandlerFunc(apiHandler.RootGetHandler)
 
-		// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
-		// directly and pass in our Request and ResponseRecorder.
-		handler.ServeHTTP(rr, req)
+			// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
+			// directly and pass in our Request and ResponseRecorder.
+			handler.ServeHTTP(rr, req)
+		})
 
 
 		it("returns status 200 OK", func() {

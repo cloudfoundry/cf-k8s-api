@@ -12,13 +12,14 @@ import (
 	. "cloudfoundry.org/cf-k8s-api/config"
 )
 const defaultConfigPath = "config.json"
-var GlobalConfig Config
+
 func main() {
 	configPath := os.Getenv("CONFIG")
 	if configPath == "" {
 		configPath = defaultConfigPath
 	}
-	err := LoadConfigFromPath(configPath, &GlobalConfig)
+
+	config, err := LoadConfigFromPath(configPath)
 	if err != nil {
 		errorMessage := fmt.Sprintf("Config could not be read: %v", err)
 		panic(errorMessage)
@@ -26,10 +27,10 @@ func main() {
 
 	// Configure the RootV3 API Handler
 	apiRootV3Handler := &apis.RootV3Handler{
-		ServerURL: GlobalConfig.ServerURL,
+		ServerURL: config.ServerURL,
 	}
 	apiRootHandler := &apis.RootHandler{
-		ServerURL: GlobalConfig.ServerURL,
+		ServerURL: config.ServerURL,
 	}
 
 	router := mux.NewRouter()
@@ -42,7 +43,7 @@ func main() {
 	// Call RegisterRoutes to register all the routes in APIRoutes
 	apiRoutes.RegisterRoutes(router)
 
-	portString := fmt.Sprintf(":%v", GlobalConfig.ServerPort)
+	portString := fmt.Sprintf(":%v", config.ServerPort)
 	log.Fatal(http.ListenAndServe(portString, router))
 
 }
