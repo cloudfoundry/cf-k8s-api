@@ -1,19 +1,21 @@
 package apis_test
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
 	"cloudfoundry.org/cf-k8s-api/apis"
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
-	"net/http"
-	"net/http/httptest"
-	"testing"
 )
 
 const (
-	jsonHeader = "application/json"
+	jsonHeader       = "application/json"
 	defaultServerURL = "https://api.example.org"
 )
+
 func TestAPI(t *testing.T) {
 	spec.Run(t, "object", testRootV3API, spec.Report(report.Terminal{}))
 	spec.Run(t, "object", testRootAPI, spec.Report(report.Terminal{}))
@@ -28,9 +30,7 @@ func testRootV3API(t *testing.T, when spec.G, it spec.S) {
 			// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
 			// pass 'nil' as the third parameter.
 			req, err := http.NewRequest("GET", "/v3", nil)
-			if err != nil {
-				t.Fatal(err)
-			}
+			Expect(err).NotTo(HaveOccurred())
 
 			// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 			rr = httptest.NewRecorder()
@@ -70,9 +70,7 @@ func testRootAPI(t *testing.T, when spec.G, it spec.S) {
 			// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
 			// pass 'nil' as the third parameter.
 			req, err := http.NewRequest("GET", "/", nil)
-			if err != nil {
-				t.Fatal(err)
-			}
+			Expect(err).NotTo(HaveOccurred())
 
 			// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 			rr = httptest.NewRecorder()
@@ -86,7 +84,6 @@ func testRootAPI(t *testing.T, when spec.G, it spec.S) {
 			// directly and pass in our Request and ResponseRecorder.
 			handler.ServeHTTP(rr, req)
 		})
-
 
 		it("returns status 200 OK", func() {
 			httpStatus := rr.Code
