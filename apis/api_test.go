@@ -23,7 +23,7 @@ func testRootV3API(t *testing.T, when spec.G, it spec.S) {
 	Expect := NewWithT(t).Expect
 
 	when("the v3 GET endpoint returns successfully", func() {
-		var rr httptest.ResponseRecorder
+		var rr *httptest.ResponseRecorder
 		it.Before(func() {
 			// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
 			// pass 'nil' as the third parameter.
@@ -33,7 +33,7 @@ func testRootV3API(t *testing.T, when spec.G, it spec.S) {
 			}
 
 			// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
-			rr := httptest.NewRecorder()
+			rr = httptest.NewRecorder()
 			apiHandler := apis.RootV3Handler{
 				ServerURL: defaultServerURL,
 			}
@@ -65,7 +65,7 @@ func testRootAPI(t *testing.T, when spec.G, it spec.S) {
 	Expect := NewWithT(t).Expect
 
 	when("the root GET endpoint returns successfully", func() {
-		var rr httptest.ResponseRecorder
+		var rr *httptest.ResponseRecorder
 		it.Before(func() {
 			// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
 			// pass 'nil' as the third parameter.
@@ -75,7 +75,7 @@ func testRootAPI(t *testing.T, when spec.G, it spec.S) {
 			}
 
 			// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
-			rr := httptest.NewRecorder()
+			rr = httptest.NewRecorder()
 			apiHandler := apis.RootHandler{
 				ServerURL: defaultServerURL,
 			}
