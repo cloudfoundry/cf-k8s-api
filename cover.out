@@ -1,0 +1,26 @@
+mode: set
+code.cloudfoundry.org/cf-k8s-api/routes/routes.go:22.56,23.52 1 1
+code.cloudfoundry.org/cf-k8s-api/routes/routes.go:26.2,27.70 2 1
+code.cloudfoundry.org/cf-k8s-api/routes/routes.go:23.52,24.38 1 1
+code.cloudfoundry.org/cf-k8s-api/apis/apps_api.go:18.78,27.16 5 0
+code.cloudfoundry.org/cf-k8s-api/apis/apps_api.go:31.2,32.16 2 0
+code.cloudfoundry.org/cf-k8s-api/apis/apps_api.go:35.2,35.62 1 0
+code.cloudfoundry.org/cf-k8s-api/apis/apps_api.go:27.16,29.3 1 0
+code.cloudfoundry.org/cf-k8s-api/apis/apps_api.go:32.16,34.3 1 0
+code.cloudfoundry.org/cf-k8s-api/apis/root_api.go:9.78,15.2 3 1
+code.cloudfoundry.org/cf-k8s-api/apis/root_v3_api.go:11.82,14.2 2 1
+code.cloudfoundry.org/cf-k8s-api/fetchers/apps_fetcher.go:24.83,26.16 2 1
+code.cloudfoundry.org/cf-k8s-api/fetchers/apps_fetcher.go:29.2,29.20 1 1
+code.cloudfoundry.org/cf-k8s-api/fetchers/apps_fetcher.go:26.16,28.3 1 0
+code.cloudfoundry.org/cf-k8s-api/fetchers/apps_fetcher.go:32.85,36.16 3 1
+code.cloudfoundry.org/cf-k8s-api/fetchers/apps_fetcher.go:39.2,42.30 3 1
+code.cloudfoundry.org/cf-k8s-api/fetchers/apps_fetcher.go:36.16,38.3 1 0
+code.cloudfoundry.org/cf-k8s-api/fetchers/apps_fetcher.go:45.81,46.20 1 1
+code.cloudfoundry.org/cf-k8s-api/fetchers/apps_fetcher.go:49.2,49.19 1 1
+code.cloudfoundry.org/cf-k8s-api/fetchers/apps_fetcher.go:53.2,53.39 1 1
+code.cloudfoundry.org/cf-k8s-api/fetchers/apps_fetcher.go:46.20,48.3 1 1
+code.cloudfoundry.org/cf-k8s-api/fetchers/apps_fetcher.go:49.19,51.3 1 1
+code.cloudfoundry.org/cf-k8s-api/fetchers/apps_fetcher.go:56.111,58.27 2 1
+code.cloudfoundry.org/cf-k8s-api/fetchers/apps_fetcher.go:63.2,63.17 1 1
+code.cloudfoundry.org/cf-k8s-api/fetchers/apps_fetcher.go:58.27,59.23 1 1
+code.cloudfoundry.org/cf-k8s-api/fetchers/apps_fetcher.go:59.23,61.4 1 1

@@ -21,24 +21,18 @@ type CFApp struct {
 	GUID string
 }
 
-func (f *AppsFetcher) ConfigureClient(config *rest.Config) error {
+func (f *AppsFetcher) ConfigureClient(config *rest.Config) (client.Client, error) {
 	client, err := client.New(config, client.Options{Scheme: scheme.Scheme})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	f.client = client
-	return nil
+	return client, nil
 }
 
-func (f *AppsFetcher) FetchApp(appGUID string) (CFApp, error) {
-	// err := f.ConfigureClient(conf)
-	// if err != nil {
-	// 	return CFApp{}, err
-	// }
-
+func (f *AppsFetcher) FetchApp(client client.Client, appGUID string) (CFApp, error) {
 	// TODO: Could look up namespace from guid => namespace cache to do Get
 	appList := &workloadsv1alpha1.CFAppList{}
-	err := f.client.List(context.Background(), appList)
+	err := client.List(context.Background(), appList)
 	if err != nil {
 		return CFApp{}, err
 	}

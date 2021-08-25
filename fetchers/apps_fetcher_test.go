@@ -65,9 +65,9 @@ var _ = SuiteDescribe("API Shim", func(t *testing.T, when spec.G, it spec.S) {
 
 		it("can fetch the App CR we're looking for", func() {
 			fetcher := fetchers.AppsFetcher{Config: k8sConfig}
-			fetcher.ConfigureClient(fetcher.Config)
+			client, err := fetcher.ConfigureClient(fetcher.Config)
 
-			app, err := fetcher.FetchApp(cfAppGUID)
+			app, err := fetcher.FetchApp(client, cfAppGUID)
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(app.GUID).To(Equal(cfAppGUID))
 		})
@@ -119,9 +119,9 @@ var _ = SuiteDescribe("API Shim", func(t *testing.T, when spec.G, it spec.S) {
 
 		it("returns an error", func() {
 			fetcher := fetchers.AppsFetcher{Config: k8sConfig}
-			fetcher.ConfigureClient(fetcher.Config)
+			client, err := fetcher.ConfigureClient(fetcher.Config)
 
-			_, err := fetcher.FetchApp(cfAppGUID)
+			_, err = fetcher.FetchApp(client, cfAppGUID)
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err).To(MatchError("duplicate apps exist"))
 		})
@@ -130,9 +130,9 @@ var _ = SuiteDescribe("API Shim", func(t *testing.T, when spec.G, it spec.S) {
 	when("no Apps exist", func() {
 		it("returns an error", func() {
 			fetcher := fetchers.AppsFetcher{Config: k8sConfig}
-			fetcher.ConfigureClient(fetcher.Config)
+			client, err := fetcher.ConfigureClient(fetcher.Config)
 
-			_, err := fetcher.FetchApp("i don't exist")
+			_, err = fetcher.FetchApp(client, "i don't exist")
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err).To(MatchError("not found"))
 		})
