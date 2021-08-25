@@ -8,42 +8,63 @@ import (
 
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type AppsFetcher struct{}
+type AppsFetcher struct {
+	Config *rest.Config
+	client client.Client
+}
 
 type CFApp struct {
 	GUID string
 }
 
-func (f *AppsFetcher) FetchApp(appGUID string, conf *rest.Config) (CFApp, error) {
-	k8sClient, err := client.New(conf, client.Options{Scheme: scheme.Scheme})
+func (f *AppsFetcher) ConfigureClient(config *rest.Config) error {
+	client, err := client.New(config, client.Options{Scheme: scheme.Scheme})
 	if err != nil {
-		return CFApp{}, err
+		return err
 	}
+	f.client = client
+	return nil
+}
+
+func (f *AppsFetcher) FetchApp(appGUID string) (CFApp, error) {
+	// err := f.ConfigureClient(conf)
+	// if err != nil {
+	// 	return CFApp{}, err
+	// }
 
 	// TODO: Could look up namespace from guid => namespace cache to do Get
 	appList := &workloadsv1alpha1.CFAppList{}
-	err = k8sClient.List(context.Background(), appList)
+	err := f.client.List(context.Background(), appList)
 	if err != nil {
 		return CFApp{}, err
 	}
 	allApps := appList.Items
+	matches := f.FilterAppsByName(allApps, appGUID)
 
-	matches := []workloadsv1alpha1.CFApp{}
-	for i, app := range allApps {
-		if app.Name == appGUID {
-			matches = append(matches, allApps[i])
-		}
-	}
+	return f.ReturnApps(matches)
+}
 
-	if len(matches) == 0 {
+func (f *AppsFetcher) ReturnApps(apps []workloadsv1alpha1.CFApp) (CFApp, error) {
+	if len(apps) == 0 {
 		return CFApp{}, errors.New("not found")
 	}
-	if len(matches) > 1 {
+	if len(apps) > 1 {
 		return CFApp{}, errors.New("duplicate apps exist")
 	}
 
-	return CFApp{GUID: matches[0].Name}, nil
+	return CFApp{GUID: apps[0].Name}, nil
+}
+
+func (f *AppsFetcher) FilterAppsByName(apps []workloadsv1alpha1.CFApp, name string) []workloadsv1alpha1.CFApp {
+	filtered := []workloadsv1alpha1.CFApp{}
+	for i, app := range apps {
+		if app.Name == name {
+			filtered = append(filtered, apps[i])
+		}
+	}
+	return filtered
 }
