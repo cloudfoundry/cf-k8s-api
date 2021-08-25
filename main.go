@@ -11,6 +11,7 @@ import (
 
 	. "code.cloudfoundry.org/cf-k8s-api/config"
 )
+
 const defaultConfigPath = "config.json"
 
 func main() {
@@ -38,7 +39,7 @@ func main() {
 	apiRoutes := routes.APIRoutes{
 		//add API routes to handler
 		RootV3Handler: apiRootV3Handler.RootV3GetHandler,
-		RootHandler: apiRootHandler.RootGetHandler,
+		RootHandler:   apiRootHandler.RootGetHandler,
 	}
 	// Call RegisterRoutes to register all the routes in APIRoutes
 	apiRoutes.RegisterRoutes(router)

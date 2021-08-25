@@ -5,11 +5,10 @@ import (
 	"net/http"
 )
 
-
 // Just contains the CF API Routes and maps them to handler functions
 
 const (
-	RootGetEndpoint = "/"
+	RootGetEndpoint   = "/"
 	RootV3GetEndpoint = "/v3"
 )
 
@@ -17,10 +16,10 @@ type httpHandlerFunction func(w http.ResponseWriter, r *http.Request)
 
 type APIRoutes struct {
 	RootV3Handler httpHandlerFunction
-	RootHandler httpHandlerFunction
+	RootHandler   httpHandlerFunction
 }
 
-func (a *APIRoutes) RegisterRoutes( router *mux.Router ) {
+func (a *APIRoutes) RegisterRoutes(router *mux.Router) {
 	if a.RootV3Handler == nil || a.RootHandler == nil {
 		panic("APIRoutes: handler was nil")
 	}
