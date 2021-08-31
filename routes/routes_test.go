@@ -147,6 +147,7 @@ func testRootV3Route(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("the APIRouter RootV3Handler is initialized and no handler is provided", func() {
+
 		it("panics when RegisterRoutes is called", func() {
 			// This will "catch" the panic from RegisterRoutes
 			g.Expect(func() {
