@@ -2,8 +2,6 @@ mode: set
 code.cloudfoundry.org/cf-k8s-api/routes/routes.go:25.56,26.76 1 1
 code.cloudfoundry.org/cf-k8s-api/routes/routes.go:29.2,31.66 3 1
 code.cloudfoundry.org/cf-k8s-api/routes/routes.go:26.76,27.38 1 1
-code.cloudfoundry.org/cf-k8s-api/apis/shared.go:9.70,15.2 1 1
-code.cloudfoundry.org/cf-k8s-api/apis/shared.go:17.50,23.2 1 1
 code.cloudfoundry.org/cf-k8s-api/apis/apps_handler.go:27.77,36.16 5 1
 code.cloudfoundry.org/cf-k8s-api/apis/apps_handler.go:42.2,43.16 2 1
 code.cloudfoundry.org/cf-k8s-api/apis/apps_handler.go:56.2,57.16 2 1
@@ -21,8 +19,8 @@ code.cloudfoundry.org/cf-k8s-api/apis/apps_handler.go:83.2,83.23 1 1
 code.cloudfoundry.org/cf-k8s-api/apis/apps_handler.go:79.16,82.3 2 0
 code.cloudfoundry.org/cf-k8s-api/apis/root_api.go:9.78,14.2 3 1
 code.cloudfoundry.org/cf-k8s-api/apis/root_v3_api.go:11.82,14.2 2 1
-code.cloudfoundry.org/cf-k8s-api/repositories/shared.go:7.39,9.2 1 1
-code.cloudfoundry.org/cf-k8s-api/repositories/shared.go:11.39,13.2 1 0
+code.cloudfoundry.org/cf-k8s-api/apis/shared.go:9.70,15.2 1 1
+code.cloudfoundry.org/cf-k8s-api/apis/shared.go:17.50,23.2 1 1
 code.cloudfoundry.org/cf-k8s-api/repositories/app_repository.go:44.79,46.16 2 1
 code.cloudfoundry.org/cf-k8s-api/repositories/app_repository.go:49.2,49.20 1 1
 code.cloudfoundry.org/cf-k8s-api/repositories/app_repository.go:46.16,48.3 1 0
@@ -39,3 +37,5 @@ code.cloudfoundry.org/cf-k8s-api/repositories/app_repository.go:91.107,93.27 2 1
 code.cloudfoundry.org/cf-k8s-api/repositories/app_repository.go:98.2,98.17 1 1
 code.cloudfoundry.org/cf-k8s-api/repositories/app_repository.go:93.27,94.23 1 1
 code.cloudfoundry.org/cf-k8s-api/repositories/app_repository.go:94.23,96.4 1 1
+code.cloudfoundry.org/cf-k8s-api/repositories/shared.go:7.39,9.2 1 1
+code.cloudfoundry.org/cf-k8s-api/repositories/shared.go:11.39,13.2 1 0

@@ -22,9 +22,13 @@ var _ = SuiteDescribe("API Shim", func(t *testing.T, when spec.G, it spec.S) {
 	)
 
 	when("multiple Apps exist", func() {
+		var (
+			cfApp1 *workloadsv1alpha1.CFApp
+			cfApp2 *workloadsv1alpha1.CFApp
+		)
 		it.Before(func() {
 			ctx := context.Background()
-			cfApp1 := &workloadsv1alpha1.CFApp{
+			cfApp1 = &workloadsv1alpha1.CFApp{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "some-other-app",
 					Namespace: namespace,
@@ -43,7 +47,7 @@ var _ = SuiteDescribe("API Shim", func(t *testing.T, when spec.G, it spec.S) {
 			}
 			g.Expect(k8sClient.Create(ctx, cfApp1)).To(Succeed())
 
-			cfApp2 := &workloadsv1alpha1.CFApp{
+			cfApp2 = &workloadsv1alpha1.CFApp{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfAppGUID,
 					Namespace: namespace,
@@ -61,6 +65,12 @@ var _ = SuiteDescribe("API Shim", func(t *testing.T, when spec.G, it spec.S) {
 				},
 			}
 			g.Expect(k8sClient.Create(ctx, cfApp2)).To(Succeed())
+		})
+
+		it.After(func() {
+			ctx := context.Background()
+			g.Expect(k8sClient.Delete(ctx, cfApp1)).To(Succeed())
+			g.Expect(k8sClient.Delete(ctx, cfApp2)).To(Succeed())
 		})
 
 		it("can fetch the AppRecord CR we're looking for", func() {
@@ -85,11 +95,16 @@ var _ = SuiteDescribe("API Shim", func(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("duplicate Apps exist across namespaces with the same name", func() {
+		var (
+			cfApp1 *workloadsv1alpha1.CFApp
+			cfApp2 *workloadsv1alpha1.CFApp
+		)
+
 		it.Before(func() {
 			ctx := context.Background()
 			g.Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "other-namespace"}})).To(Succeed())
 
-			cfApp1 := &workloadsv1alpha1.CFApp{
+			cfApp1 = &workloadsv1alpha1.CFApp{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfAppGUID,
 					Namespace: namespace,
@@ -108,7 +123,7 @@ var _ = SuiteDescribe("API Shim", func(t *testing.T, when spec.G, it spec.S) {
 			}
 			g.Expect(k8sClient.Create(ctx, cfApp1)).To(Succeed())
 
-			cfApp2 := &workloadsv1alpha1.CFApp{
+			cfApp2 = &workloadsv1alpha1.CFApp{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cfAppGUID,
 					Namespace: "other-namespace",
@@ -126,6 +141,12 @@ var _ = SuiteDescribe("API Shim", func(t *testing.T, when spec.G, it spec.S) {
 				},
 			}
 			g.Expect(k8sClient.Create(ctx, cfApp2)).To(Succeed())
+		})
+
+		it.After(func() {
+			ctx := context.Background()
+			g.Expect(k8sClient.Delete(ctx, cfApp1)).To(Succeed())
+			g.Expect(k8sClient.Delete(ctx, cfApp2)).To(Succeed())
 		})
 
 		it("returns an error", func() {
