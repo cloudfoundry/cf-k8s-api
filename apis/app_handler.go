@@ -62,3 +62,38 @@ func (h *AppHandler) AppGetHandler(w http.ResponseWriter, r *http.Request) {
 
 	_, _ = w.Write(responseBody)
 }
+
+func (h *AppHandler) AppsCreateHandler(w http.ResponseWriter, r *http.Request) {
+
+	//Decode request JSON into a appropriate Message Type
+	var appCreateMessage messages.AppCreateMessage
+
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	err := decoder.Decode(&appCreateMessage)
+	if err != nil {
+		w.WriteHeader(400)
+		return
+	}
+
+}
+
+func writeNotFoundErrorResponse(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusNotFound)
+	responseBody, err := json.Marshal(newNotFoundError("App"))
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Write(responseBody)
+}
+
+func writeUnknownErrorResponse(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusInternalServerError)
+	responseBody, err := json.Marshal(newUnknownError())
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Write(responseBody)
+}
