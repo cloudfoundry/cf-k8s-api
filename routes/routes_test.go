@@ -62,6 +62,7 @@ func sendRequestToRouter(req *http.Request, router *mux.Router) *httptest.Respon
 func TestRouter(t *testing.T) {
 	spec.Run(t, "object", testRootRoute, spec.Report(report.Terminal{}))
 	spec.Run(t, "object", testRootV3Route, spec.Report(report.Terminal{}))
+	spec.Run(t, "object", testAppsGetRoute, spec.Report(report.Terminal{}))
 }
 func testRootRoute(t *testing.T, when spec.G, it spec.S) {
 	Expect := NewWithT(t).Expect
