@@ -1,6 +1,7 @@
 package apis_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -46,8 +47,8 @@ func (f *FakeAppRepo) FetchApp(client client.Client, appGUID string) (repositori
 }
 
 func TestApp(t *testing.T) {
-	spec.Run(t, "object", testAppGetHandler, spec.Report(report.Terminal{}))
-	spec.Run(t, "AppsCreateHandler", testAppsGetHandler, spec.Report(report.Terminal{}))
+	spec.Run(t, "AppsGetHandler", testAppGetHandler, spec.Report(report.Terminal{}))
+	spec.Run(t, "AppsCreateHandler", testAppsCreateHandler, spec.Report(report.Terminal{}))
 }
 
 func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
@@ -245,7 +246,7 @@ func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
 
 }
 
-func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
+func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 	Expect := NewWithT(t).Expect
 	var rr *httptest.ResponseRecorder
 
@@ -263,8 +264,15 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 				req, err := http.NewRequest("POST", "/v3/apps", bytes.NewReader(requestBody))
 				Expect(err).NotTo(HaveOccurred())
 
-				apiHandler := AppHandler{
+				apiHandler := apis.AppHandler{
 					ServerURL: defaultServerURL,
+					AppRepo: &FakeAppRepo{
+						FetchAppFunc: func(_ client.Client, _ string) (repositories.AppRecord, error) {
+							return FetchAppResponseApp, FetchAppErr
+						},
+					},
+					Logger:    logf.Log.WithName("TestAppHandler"),
+					K8sConfig: &rest.Config{},
 				}
 
 				rr = httptest.NewRecorder()
@@ -276,7 +284,154 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 				Expect(rr.Code).To(Equal(http.StatusBadRequest))
 			})
 			it("has the expected error response body", func() {
-				Expect(rr.Body.Bytes()).NotTo(BeEmpty())
+				expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+					Title:  "CF-MessageParseError",
+					Detail: "Request invalid due to parse error: invalid request body",
+					Code:   1001,
+				}}})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(rr.Body).To(MatchJSON(expectedBody))
+			})
+
+		})
+
+		when("the request body is invalid with invalid app name", func() {
+			it.Before(func() {
+				requestBody := []byte(`{
+										"name": 12345,
+										"relationships": {
+										  "space": {
+											"data": {
+											  "guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
+											}
+										  }
+										}
+									  }`)
+
+				req, err := http.NewRequest("POST", "/v3/apps", bytes.NewReader(requestBody))
+				Expect(err).NotTo(HaveOccurred())
+
+				apiHandler := apis.AppHandler{
+					ServerURL: defaultServerURL,
+					AppRepo: &FakeAppRepo{
+						FetchAppFunc: func(_ client.Client, _ string) (repositories.AppRecord, error) {
+							return FetchAppResponseApp, FetchAppErr
+						},
+					},
+					Logger:    logf.Log.WithName("TestAppHandler"),
+					K8sConfig: &rest.Config{},
+				}
+
+				rr = httptest.NewRecorder()
+				handler := http.HandlerFunc(apiHandler.AppsCreateHandler)
+				handler.ServeHTTP(rr, req)
+
+			})
+			it("returns a status 422 Unprocessable Entity", func() {
+				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity))
+			})
+			it("has the expected error response body", func() {
+				expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+					Title:  "CF-UnprocessableEntity",
+					Detail: "Name must be a string",
+					Code:   10008,
+				}}})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(rr.Body).To(MatchJSON(expectedBody))
+			})
+
+		})
+
+		when("the request body is invalid with invalid environment variable object", func() {
+			it.Before(func() {
+				requestBody := []byte(`{
+										"name": "my_app",
+										"environment_variables": [],
+										"relationships": {
+										  "space": {
+											"data": {
+											  "guid": "2f35885d-0c9d-4423-83ad-fd05066f8576"
+											}
+										  }
+										}
+									  }`)
+
+				req, err := http.NewRequest("POST", "/v3/apps", bytes.NewReader(requestBody))
+				Expect(err).NotTo(HaveOccurred())
+
+				apiHandler := apis.AppHandler{
+					ServerURL: defaultServerURL,
+					AppRepo: &FakeAppRepo{
+						FetchAppFunc: func(_ client.Client, _ string) (repositories.AppRecord, error) {
+							return FetchAppResponseApp, FetchAppErr
+						},
+					},
+					Logger:    logf.Log.WithName("TestAppHandler"),
+					K8sConfig: &rest.Config{},
+				}
+
+				rr = httptest.NewRecorder()
+				handler := http.HandlerFunc(apiHandler.AppsCreateHandler)
+				handler.ServeHTTP(rr, req)
+
+			})
+			it("returns a status 422 Unprocessable Entity", func() {
+				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity))
+			})
+			it("has the expected error response body", func() {
+				expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+					Title:  "CF-UnprocessableEntity",
+					Detail: "Environment_variables must be a map[string]string",
+					Code:   10008,
+				}}})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(rr.Body).To(MatchJSON(expectedBody))
+			})
+
+		})
+
+		when("the request body is invalid with missing required name field", func() {
+			it.Before(func() {
+				requestBody := []byte(`{
+										"relationships": {
+										  "space": {
+											"data": {
+											  "guid": "0c78dd5d-c723-4f2e-b168-df3c3e1d0806"
+											}
+										  }
+										}
+									  }`)
+
+				req, err := http.NewRequest("POST", "/v3/apps", bytes.NewReader(requestBody))
+				Expect(err).NotTo(HaveOccurred())
+
+				apiHandler := apis.AppHandler{
+					ServerURL: defaultServerURL,
+					AppRepo: &FakeAppRepo{
+						FetchAppFunc: func(_ client.Client, _ string) (repositories.AppRecord, error) {
+							return FetchAppResponseApp, FetchAppErr
+						},
+					},
+					Logger:    logf.Log.WithName("TestAppHandler"),
+					K8sConfig: &rest.Config{},
+				}
+
+				rr = httptest.NewRecorder()
+				handler := http.HandlerFunc(apiHandler.AppsCreateHandler)
+				handler.ServeHTTP(rr, req)
+
+			})
+			it("returns a status 422 Unprocessable Entity", func() {
+				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity))
+			})
+			it("has the expected error response body", func() {
+				expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+					Title:  "CF-UnprocessableEntity",
+					Detail: "Name must be a string",
+					Code:   10008,
+				}}})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(rr.Body).To(MatchJSON(expectedBody))
 			})
 
 		})

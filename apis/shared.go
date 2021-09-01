@@ -24,6 +24,22 @@ func newUnknownError() presenters.ErrorsResponse {
 	}}}
 }
 
+func newMessageParseError() presenters.ErrorsResponse {
+	return presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+		Title:  "CF-MessageParseError",
+		Detail: "Request invalid due to parse error: invalid request body",
+		Code:   1001,
+	}}}
+}
+
+func newUnprocessableEntityError(detail string) presenters.ErrorsResponse {
+	return presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+		Title:  "CF-UnprocessableEntity",
+		Detail: detail,
+		Code:   10008,
+	}}}
+}
+
 func writeNotFoundErrorResponse(w http.ResponseWriter, resourceName string) {
 	w.WriteHeader(http.StatusNotFound)
 	responseBody, err := json.Marshal(newNotFoundError(resourceName))
