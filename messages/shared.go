@@ -9,9 +9,15 @@ type LifecycleData struct {
 	Stack      string   `json:"stack"`
 }
 
-type Relationships map[string]Relationship
+type Relationship struct{
+	Space Space `json:"space"`
+}
 
-type Relationship struct {
+type Space struct {
+	Data Data `json:"data"`
+}
+
+type Data struct {
 	GUID string `json:"guid" validate:"required"`
 }
 

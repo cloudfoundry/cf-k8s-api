@@ -21,3 +21,19 @@ func newUnknownError() presenters.ErrorsResponse {
 		Code:   10001,
 	}}}
 }
+
+func newMessageParseError() presenters.ErrorsResponse {
+	return presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+		Title:  "CF-MessageParseError",
+		Detail: "Request invalid due to parse error: invalid request body",
+		Code:   1001,
+	}}}
+}
+
+func newUnprocessableEntityError(detail string) presenters.ErrorsResponse {
+	return presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+		Title:  "CF-UnprocessableEntity",
+		Detail: detail,
+		Code:   10008,
+	}}}
+}
