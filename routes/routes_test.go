@@ -28,7 +28,7 @@ func initializeAPIRoutes() *routes.APIRoutes {
 		RootV3Handler:     emptyHandlerFunc,
 		RootHandler:       emptyHandlerFunc,
 		AppsCreateHandler: emptyHandlerFunc,
-		AppsHandler:   emptyHandlerFunc,
+		AppsHandler:       emptyHandlerFunc,
 	}
 }
 

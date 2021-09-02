@@ -11,3 +11,15 @@ func (e NotFoundError) Error() string {
 func (e NotFoundError) Unwrap() error {
 	return e.Err
 }
+
+type PermissionDeniedOrNotFoundError struct {
+	Err error
+}
+
+func (e PermissionDeniedOrNotFoundError) Error() string {
+	return "Invalid space. Ensure that the space exists and you have access to it."
+}
+
+func (e PermissionDeniedOrNotFoundError) Unwrap() error {
+	return e.Err
+}
