@@ -24,12 +24,15 @@ import (
 )
 
 type FakeAppRepo struct {
-	FetchAppFunc func(_ client.Client, _ string) (repositories.AppRecord, error)
+	FetchAppFunc       func(_ client.Client, _ string) (repositories.AppRecord, error)
+	FetchNamespaceFunc func(_ client.Client, _ string) (repositories.SpaceRecord, error)
 }
 
 var (
-	FetchAppResponseApp repositories.AppRecord
-	FetchAppErr         error
+	FetchAppResponseApp    repositories.AppRecord
+	FetchNamespaceResponse repositories.SpaceRecord
+	FetchAppErr            error
+	FetchNamespaceErr      error
 )
 
 func (f *FakeAppRepo) ConfigureClient(config *rest.Config) (client.Client, error) {
@@ -44,6 +47,10 @@ func (f *FakeAppRepo) ConfigureClient(config *rest.Config) (client.Client, error
 
 func (f *FakeAppRepo) FetchApp(client client.Client, appGUID string) (repositories.AppRecord, error) {
 	return f.FetchAppFunc(client, appGUID)
+}
+
+func (f *FakeAppRepo) FetchNamespace(client client.Client, nsGUID string) (repositories.SpaceRecord, error) {
+	return f.FetchNamespaceFunc(client, nsGUID)
 }
 
 func TestApps(t *testing.T) {
@@ -434,6 +441,104 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				Expect(rr.Body).To(MatchJSON(expectedBody))
 			})
 
+		})
+
+		when("the request body is invalid with missing data within lifecycle", func() {
+			it.Before(func() {
+				requestBody := []byte(`{
+										"name": "test-app",
+										"lifecycle":{},
+										"relationships": {
+										  "space": {
+											"data": {
+											  "guid": "0c78dd5d-c723-4f2e-b168-df3c3e1d0806"
+											}
+										  }
+										}
+									  }`)
+
+				req, err := http.NewRequest("POST", "/v3/apps", bytes.NewReader(requestBody))
+				Expect(err).NotTo(HaveOccurred())
+
+				apiHandler := apis.AppHandler{
+					ServerURL: defaultServerURL,
+					AppRepo: &FakeAppRepo{
+						FetchAppFunc: func(_ client.Client, _ string) (repositories.AppRecord, error) {
+							return FetchAppResponseApp, FetchAppErr
+						},
+					},
+					Logger:    logf.Log.WithName("TestAppHandler"),
+					K8sConfig: &rest.Config{},
+				}
+
+				rr = httptest.NewRecorder()
+				handler := http.HandlerFunc(apiHandler.AppsCreateHandler)
+				handler.ServeHTTP(rr, req)
+
+			})
+			it("returns a status 422 Unprocessable Entity", func() {
+				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity))
+			})
+			it("has the expected error response body", func() {
+				expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+					Title:  "CF-UnprocessableEntity",
+					Detail: "Buildpacks must be a []string,Stack must be a string",
+					Code:   10008,
+				}}})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(rr.Body).To(MatchJSON(expectedBody))
+			})
+
+		})
+
+		when("the space does not exists", func() {
+			it.Before(func() {
+				FetchNamespaceResponse = repositories.SpaceRecord{}
+				FetchNamespaceErr = repositories.NotFoundError{Err: errors.New("not found")}
+				requestBody := []byte(`{
+										"name": "test-app",
+										"relationships": {
+										  "space": {
+											"data": {
+											  "guid": "0c78dd5d-c723-4f2e-b168-df3c3e1d0806"
+											}
+										  }
+										}
+									  }`)
+
+				req, err := http.NewRequest("POST", "/v3/apps", bytes.NewReader(requestBody))
+				Expect(err).NotTo(HaveOccurred())
+
+				rr = httptest.NewRecorder()
+				apiHandler := apis.AppHandler{
+					ServerURL: defaultServerURL,
+					AppRepo: &FakeAppRepo{
+						FetchNamespaceFunc: func(_ client.Client, _ string) (repositories.SpaceRecord, error) {
+							return FetchNamespaceResponse, FetchNamespaceErr
+						},
+					},
+					Logger:    logf.Log.WithName("TestAppHandler"),
+					K8sConfig: &rest.Config{},
+				}
+
+				handler := http.HandlerFunc(apiHandler.AppsCreateHandler)
+
+				handler.ServeHTTP(rr, req)
+			})
+
+			it("returns a CF API formatted Error response", func() {
+				expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+					Detail: "Invalid space. Ensure that the space exists and you have access to it.",
+					Title:  "CF-UnprocessableEntity",
+					Code:   10008,
+				}}})
+
+				httpStatus := rr.Code
+				Expect(httpStatus).Should(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
+			})
 		})
 
 	})

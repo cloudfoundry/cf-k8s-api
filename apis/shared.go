@@ -6,6 +6,15 @@ import (
 	"code.cloudfoundry.org/cf-k8s-api/presenters"
 )
 
+type requestMalformedError struct {
+	httpStatus    int
+	errorResponse presenters.ErrorsResponse
+}
+
+func (rme *requestMalformedError) Error() string {
+	return fmt.Sprintf("Error throwing an http %v", rme.httpStatus)
+}
+
 func newNotFoundError(resourceName string) presenters.ErrorsResponse {
 	return presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
 		Title:  fmt.Sprintf("%s not found", resourceName),

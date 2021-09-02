@@ -13,7 +13,10 @@ import (
 	"github.com/sclevine/spec"
 )
 
-var _ = SuiteDescribe("API Shim", func(t *testing.T, when spec.G, it spec.S) {
+var _ = SuiteDescribe("API Shim App Get", testAppGet)
+var _ = SuiteDescribe("API Shim App Create", testAppCreate)
+
+func testAppGet(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
 
 	const (
@@ -169,4 +172,17 @@ var _ = SuiteDescribe("API Shim", func(t *testing.T, when spec.G, it spec.S) {
 			g.Expect(err).To(MatchError("not found"))
 		})
 	})
-})
+}
+
+func testAppCreate(t *testing.T, when spec.G, it spec.S) {
+
+	when("creating an App record", func() {
+
+		when("space does not exists", func() {
+			it.Before(func() {
+
+			})
+
+		})
+	})
+}
