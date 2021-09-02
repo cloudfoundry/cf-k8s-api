@@ -1,12 +1,13 @@
 package apis
 
 import (
-	"code.cloudfoundry.org/cf-k8s-api/messages"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
+
+	"code.cloudfoundry.org/cf-k8s-api/messages"
 
 	"code.cloudfoundry.org/cf-k8s-api/presenters"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
@@ -140,7 +141,7 @@ func (h *AppHandler) AppsCreateHandler(w http.ResponseWriter, r *http.Request) {
 	_, err = h.AppRepo.FetchNamespace(client, namespaceGUID)
 	if err != nil {
 		switch err.(type) {
-		case repositories.NotFoundError:
+		case repositories.PermissionDeniedOrNotFoundError:
 			h.Logger.Info("Namespace not found", "Namespace GUID", namespaceGUID)
 			writeUnprocessableEntityError(w, "Invalid space. Ensure that the space exists and you have access to it.")
 			return

@@ -9,6 +9,8 @@ import (
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -109,6 +111,13 @@ func (f *AppRepo) FetchNamespace(client client.Client, nsGUID string) (SpaceReco
 	namespace := &v1.Namespace{}
 	err := client.Get(context.Background(), types.NamespacedName{Name: nsGUID}, namespace)
 	if err != nil {
+		switch errtype := err.(type) {
+		case *k8serrors.StatusError:
+			reason := errtype.Status().Reason
+			if reason == metav1.StatusReasonNotFound || reason == metav1.StatusReasonUnauthorized {
+				return SpaceRecord{}, PermissionDeniedOrNotFoundError{Err: err}
+			}
+		}
 		return SpaceRecord{}, err
 	}
 	return f.v1NamespaceToSpaceRecord(namespace), nil

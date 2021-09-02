@@ -494,7 +494,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		when("the space does not exists", func() {
 			it.Before(func() {
 				FetchNamespaceResponse = repositories.SpaceRecord{}
-				FetchNamespaceErr = repositories.NotFoundError{Err: errors.New("not found")}
+				FetchNamespaceErr = repositories.PermissionDeniedOrNotFoundError{Err: errors.New("not found")}
 				requestBody := []byte(`{
 										"name": "test-app",
 										"relationships": {
