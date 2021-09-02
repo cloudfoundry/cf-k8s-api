@@ -3,6 +3,8 @@ package repositories
 import (
 	"context"
 	"errors"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -38,6 +40,11 @@ type Lifecycle struct {
 type LifecycleData struct {
 	Buildpacks []string
 	Stack      string
+}
+
+type SpaceRecord struct {
+	Name             string
+	OrganizationGUID string
 }
 
 // TODO: Make a general ConfigureClient function / config and client generating package
@@ -96,4 +103,21 @@ func (f *AppRepo) filterAppsByName(apps []workloadsv1alpha1.CFApp, name string) 
 		}
 	}
 	return filtered
+}
+
+func (f *AppRepo) FetchNamespace(client client.Client, nsGUID string) (SpaceRecord, error) {
+	namespace := &v1.Namespace{}
+	err := client.Get(context.Background(), types.NamespacedName{Name: nsGUID}, namespace)
+	if err != nil {
+		return SpaceRecord{}, err
+	}
+	return f.v1NamespaceToSpaceRecord(namespace), nil
+}
+
+func (f *AppRepo) v1NamespaceToSpaceRecord(namespace *v1.Namespace) SpaceRecord {
+	//TODO How do we derive Organization GUID here?
+	return SpaceRecord{
+		Name:             namespace.Name,
+		OrganizationGUID: "",
+	}
 }

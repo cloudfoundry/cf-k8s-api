@@ -1,20 +1,20 @@
 package messages
 
 type Lifecycle struct {
-	Data LifecycleData `json:"data"`
+	Data LifecycleData `json:"data" validate:"required"`
 }
 
 type LifecycleData struct {
-	Buildpacks []string `json:"buildpacks"`
-	Stack      string   `json:"stack"`
+	Buildpacks []string `json:"buildpacks" validate:"required"`
+	Stack      string   `json:"stack" validate:"required"`
 }
 
-type Relationship struct{
-	Space Space `json:"space"`
+type Relationship struct {
+	Space Space `json:"space" validate:"required"`
 }
 
 type Space struct {
-	Data Data `json:"data"`
+	Data Data `json:"data" validate:"required"`
 }
 
 type Data struct {
