@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"errors"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -23,6 +24,11 @@ const (
 	StoppedState DesiredState = "STOPPED"
 )
 
+const (
+	Kind       string = "CFApp"
+	APIVersion string = "workloads.cloudfoundry.org/v1alpha1"
+)
+
 type AppRecord struct {
 	Name      string
 	GUID      string
@@ -36,6 +42,7 @@ type AppRecord struct {
 type DesiredState string
 
 type Lifecycle struct {
+	Type string
 	Data LifecycleData
 }
 
@@ -71,7 +78,62 @@ func (f *AppRepo) FetchApp(client client.Client, appGUID string) (AppRecord, err
 	return f.returnApps(matches)
 }
 
-func cfAppToResponseApp(cfApp workloadsv1alpha1.CFApp) AppRecord {
+func (f *AppRepo) GetApp(client client.Client, appGUID string, namespace string) (*workloadsv1alpha1.CFApp, error) {
+	app := &workloadsv1alpha1.CFApp{}
+	err := client.Get(context.Background(), types.NamespacedName{
+		Namespace: namespace,
+		Name:      appGUID,
+	}, app)
+	return app, err
+}
+
+func (f *AppRepo) CheckForApp(client client.Client, appGUID string, namespace string) error {
+	_, err := f.GetApp(client, appGUID, namespace)
+	switch errtype := err.(type) {
+	case *k8serrors.StatusError:
+		reason := errtype.Status().Reason
+		if reason == metav1.StatusReasonNotFound {
+			return ResourceNotFoundError{Err: err}
+		}
+	}
+
+	return err
+}
+
+func (f *AppRepo) CreateApp(client client.Client, appRecord AppRecord) (AppRecord, error) {
+	cfApp := f.AppRecordToCfApp(appRecord)
+	err := client.Create(context.Background(), &cfApp)
+	if err != nil {
+		return AppRecord{}, err
+	}
+	return f.CfAppToResponseApp(cfApp), err
+}
+
+func (f *AppRepo) AppRecordToCfApp(appRecord AppRecord) workloadsv1alpha1.CFApp {
+	return workloadsv1alpha1.CFApp{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       Kind,
+			APIVersion: APIVersion,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      appRecord.GUID,
+			Namespace: appRecord.SpaceGUID,
+		},
+		Spec: workloadsv1alpha1.CFAppSpec{
+			Name:         appRecord.Name,
+			DesiredState: workloadsv1alpha1.DesiredState(appRecord.State),
+			Lifecycle: workloadsv1alpha1.Lifecycle{
+				Type: workloadsv1alpha1.LifecycleType(appRecord.Lifecycle.Type),
+				Data: workloadsv1alpha1.LifecycleData{
+					Buildpacks: appRecord.Lifecycle.Data.Buildpacks,
+					Stack:      appRecord.Lifecycle.Data.Stack,
+				},
+			},
+		},
+	}
+}
+
+func (f *AppRepo)CfAppToResponseApp(cfApp workloadsv1alpha1.CFApp) AppRecord {
 	return AppRecord{
 		GUID:      cfApp.Name,
 		Name:      cfApp.Spec.Name,
@@ -94,7 +156,7 @@ func (f *AppRepo) returnApps(apps []workloadsv1alpha1.CFApp) (AppRecord, error) 
 		return AppRecord{}, errors.New("duplicate apps exist")
 	}
 
-	return cfAppToResponseApp(apps[0]), nil
+	return f.CfAppToResponseApp(apps[0]), nil
 }
 
 func (f *AppRepo) filterAppsByName(apps []workloadsv1alpha1.CFApp, name string) []workloadsv1alpha1.CFApp {
