@@ -2,6 +2,7 @@ package apis_test
 
 import (
 	"bytes"
+	"code.cloudfoundry.org/cf-k8s-api/apis/apisfakes"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -81,17 +82,16 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 			}
 			FetchAppErr = nil
 
+			fakeAppRepo := &apisfakes.FakeCFAppRepository{}
+			fakeAppRepo.FetchAppReturns(FetchAppResponseApp, FetchAppErr)
+
 			req, err := http.NewRequest("GET", "/v3/apps/my-app-guid", nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			rr = httptest.NewRecorder()
 			apiHandler := apis.AppHandler{
 				ServerURL: defaultServerURL,
-				AppRepo: &FakeAppRepo{
-					FetchAppFunc: func(_ client.Client, _ string) (repositories.AppRecord, error) {
-						return FetchAppResponseApp, FetchAppErr
-					},
-				},
+				AppRepo:   fakeAppRepo,
 				Logger:    logf.Log.WithName("TestAppHandler"),
 				K8sConfig: &rest.Config{},
 			}
