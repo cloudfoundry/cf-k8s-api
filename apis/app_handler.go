@@ -67,6 +67,46 @@ func (h *AppHandler) AppGetHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(responseBody)
 }
 
+func (h *AppHandler) AppsCreateHandler(w http.ResponseWriter, r *http.Request) {
+
+	var appCreateMessage messages.AppCreateMessage
+	err := DecodePayload(r, &appCreateMessage)
+	if err != nil {
+		var rme *requestMalformedError
+		if errors.As(err, &rme) {
+			writeErrorResponse(w, rme)
+		} else {
+			h.Logger.Error(err, "Unknown internal server error")
+			writeUnknownErrorResponse(w)
+		}
+		return
+	}
+
+	// TODO: Instantiate config based on bearer token
+	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
+	client, err := h.AppRepo.ConfigureClient(h.K8sConfig)
+	if err != nil {
+		h.Logger.Error(err, "Unable to create Kubernetes client")
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	namespaceGUID := appCreateMessage.Relationships.Space.Data.GUID
+	_, err = h.AppRepo.FetchNamespace(client, namespaceGUID)
+	if err != nil {
+		switch err.(type) {
+		case repositories.PermissionDeniedOrNotFoundError:
+			h.Logger.Info("Namespace not found", "Namespace GUID", namespaceGUID)
+			writeUnprocessableEntityError(w, "Invalid space. Ensure that the space exists and you have access to it.")
+			return
+		default:
+			h.Logger.Error(err, "Failed to fetch namespace from Kubernetes", "Namespace GUID", namespaceGUID)
+			writeUnknownErrorResponse(w)
+			return
+		}
+	}
+}
+
 func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	var appCreateMessage messages.AppCreateMessage
