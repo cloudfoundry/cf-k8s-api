@@ -89,14 +89,17 @@ func (f *AppRepo) GetApp(client client.Client, appGUID string, namespace string)
 
 func (f *AppRepo) CheckForApp(client client.Client, appGUID string, namespace string) error {
 	_, err := f.GetApp(client, appGUID, namespace)
-	switch errtype := err.(type) {
-	case *k8serrors.StatusError:
-		reason := errtype.Status().Reason
-		if reason == metav1.StatusReasonNotFound {
-			return ResourceNotFoundError{Err: err}
+	if err != nil {
+		switch errtype := err.(type) {
+		case *k8serrors.StatusError:
+			reason := errtype.Status().Reason
+			if reason == metav1.StatusReasonNotFound {
+				return ResourceNotFoundError{Err: err}
+			}
+		default:
+			return err
 		}
 	}
-
 	return err
 }
 
@@ -133,7 +136,7 @@ func (f *AppRepo) AppRecordToCfApp(appRecord AppRecord) workloadsv1alpha1.CFApp 
 	}
 }
 
-func (f *AppRepo)CfAppToResponseApp(cfApp workloadsv1alpha1.CFApp) AppRecord {
+func (f *AppRepo) CfAppToResponseApp(cfApp workloadsv1alpha1.CFApp) AppRecord {
 	return AppRecord{
 		GUID:      cfApp.Name,
 		Name:      cfApp.Spec.Name,
