@@ -4,22 +4,21 @@ import (
 	"code.cloudfoundry.org/cf-k8s-api/messages"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
-	"strings"
 
 	"code.cloudfoundry.org/cf-k8s-api/presenters"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 	"github.com/go-logr/logr"
-	validator "github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . CFAppRepository
 type CFAppRepository interface {
 	ConfigureClient(*rest.Config) (client.Client, error)
 	FetchApp(client.Client, string) (repositories.AppRecord, error)
+	FetchNamespace(client.Client, string) (repositories.SpaceRecord, error)
 }
 
 type AppHandler struct {
@@ -37,14 +36,14 @@ func (h *AppHandler) AppGetHandler(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: Instantiate config based on bearer token
 	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
-	appClient, err := h.AppRepo.ConfigureClient(h.K8sConfig)
+	client, err := h.AppRepo.ConfigureClient(h.K8sConfig)
 	if err != nil {
 		h.Logger.Error(err, "Unable to create Kubernetes client", "AppGUID", appGUID)
 		writeUnknownErrorResponse(w)
 		return
 	}
 
-	app, err := h.AppRepo.FetchApp(appClient, appGUID)
+	app, err := h.AppRepo.FetchApp(client, appGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
@@ -65,77 +64,45 @@ func (h *AppHandler) AppGetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, _ = w.Write(responseBody)
+	w.Write(responseBody)
 }
 
-func (h *AppHandler) AppsCreateHandler(w http.ResponseWriter, r *http.Request) {
+func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 
-	//Decode request JSON into a appropriate Message Type
 	var appCreateMessage messages.AppCreateMessage
-
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-	err := decoder.Decode(&appCreateMessage)
+	err := DecodePayload(r, &appCreateMessage)
 	if err != nil {
-		var unmarshalTypeError *json.UnmarshalTypeError
-		switch {
-			case errors.As(err, &unmarshalTypeError):
-				h.Logger.Error(err, fmt.Sprintf("Request body contains an invalid value for the %q field (should be of type %v)", strings.Title(unmarshalTypeError.Field), unmarshalTypeError.Type))
-				writeUnprocessableEntityError(w, fmt.Sprintf("%v must be a %v",strings.Title(unmarshalTypeError.Field),unmarshalTypeError.Type))
-
-			default:
-				h.Logger.Error(err, "Unable to parse the App Create Message body")
-				writeMessageParseError(w)
-			}
+		var rme *requestMalformedError
+		if errors.As(err, &rme) {
+			writeErrorResponse(w, rme)
+		} else {
+			h.Logger.Error(err, "Unknown internal server error")
+			writeUnknownErrorResponse(w)
+		}
 		return
 	}
 
-	v := validator.New()
-	err = v.Struct(appCreateMessage)
-
-	for _, e := range err.(validator.ValidationErrors) {
-		writeUnprocessableEntityError(w, fmt.Sprintf("%v must be a %v",strings.Title(e.Field()), e.Type()))
-		return
-	}
-
-}
-
-func writeNotFoundErrorResponse(w http.ResponseWriter) {
-	w.WriteHeader(http.StatusNotFound)
-	responseBody, err := json.Marshal(newNotFoundError("App"))
+	// TODO: Instantiate config based on bearer token
+	// Spike code from EMEA folks around this: https://github.com/cloudfoundry/cf-crd-explorations/blob/136417fbff507eb13c92cd67e6fed6b061071941/cfshim/handlers/app_handler.go#L78
+	client, err := h.AppRepo.ConfigureClient(h.K8sConfig)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		h.Logger.Error(err, "Unable to create Kubernetes client")
+		writeUnknownErrorResponse(w)
 		return
 	}
-	w.Write(responseBody)
-}
 
-func writeUnknownErrorResponse(w http.ResponseWriter) {
-	w.WriteHeader(http.StatusInternalServerError)
-	responseBody, err := json.Marshal(newUnknownError())
+	namespaceGUID := appCreateMessage.Relationships.Space.Data.GUID
+	_, err = h.AppRepo.FetchNamespace(client, namespaceGUID)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		switch err.(type) {
+		case repositories.PermissionDeniedOrNotFoundError:
+			h.Logger.Info("Namespace not found", "Namespace GUID", namespaceGUID)
+			writeUnprocessableEntityError(w, "Invalid space. Ensure that the space exists and you have access to it.")
+			return
+		default:
+			h.Logger.Error(err, "Failed to fetch namespace from Kubernetes", "Namespace GUID", namespaceGUID)
+			writeUnknownErrorResponse(w)
+			return
+		}
 	}
-	w.Write(responseBody)
-}
-
-func writeMessageParseError(w http.ResponseWriter){
-	w.WriteHeader(http.StatusBadRequest)
-	responseBody, err := json.Marshal(newMessageParseError())
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	w.Write(responseBody)
-}
-
-func writeUnprocessableEntityError(w http.ResponseWriter, errorDetail string){
-	w.WriteHeader(http.StatusUnprocessableEntity)
-	responseBody, err := json.Marshal(newUnprocessableEntityError(errorDetail))
-	if err != nil {
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		return
-	}
-	w.Write(responseBody)
 }

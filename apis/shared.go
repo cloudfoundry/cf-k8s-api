@@ -116,3 +116,33 @@ func writeUnknownErrorResponse(w http.ResponseWriter) {
 	}
 	_, _ = w.Write(responseBody)
 }
+
+func writeErrorResponse(w http.ResponseWriter, rme *requestMalformedError) {
+	w.WriteHeader(rme.httpStatus)
+	responseBody, err := json.Marshal(rme.errorResponse)
+	if err != nil {
+		w.WriteHeader(rme.httpStatus)
+		return
+	}
+	w.Write(responseBody)
+}
+
+func writeMessageParseError(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusBadRequest)
+	responseBody, err := json.Marshal(newMessageParseError())
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	w.Write(responseBody)
+}
+
+func writeUnprocessableEntityError(w http.ResponseWriter, errorDetail string) {
+	w.WriteHeader(http.StatusUnprocessableEntity)
+	responseBody, err := json.Marshal(newUnprocessableEntityError(errorDetail))
+	if err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		return
+	}
+	w.Write(responseBody)
+}

@@ -25,11 +25,11 @@ func initializeAPIRoutes() *routes.APIRoutes {
 	emptyHandlerFunc := func(w http.ResponseWriter, r *http.Request) {}
 
 	return &routes.APIRoutes{
-		RootV3Handler: emptyHandlerFunc,
-		RootHandler:   emptyHandlerFunc,
-		AppHandler:    emptyHandlerFunc,
+		RootV3Handler:     emptyHandlerFunc,
+		RootHandler:       emptyHandlerFunc,
+		AppHandler:        emptyHandlerFunc,
 		AppsCreateHandler: emptyHandlerFunc,
-		RouteHandler:  emptyHandlerFunc,
+		RouteHandler:      emptyHandlerFunc,
 	}
 }
 
