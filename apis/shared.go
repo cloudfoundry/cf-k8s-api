@@ -98,6 +98,14 @@ func newUnprocessableEntityError(detail string) presenters.ErrorsResponse {
 	}}}
 }
 
+func newUniquenessError(detail string) presenters.ErrorsResponse {
+	return presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+		Title:  "CF-UniquenessError",
+		Detail: detail,
+		Code:   10016,
+	}}}
+}
+
 func writeNotFoundErrorResponse(w http.ResponseWriter, resourceName string) {
 	w.WriteHeader(http.StatusNotFound)
 	responseBody, err := json.Marshal(newNotFoundError(resourceName))
@@ -140,6 +148,16 @@ func writeMessageParseError(w http.ResponseWriter) {
 func writeUnprocessableEntityError(w http.ResponseWriter, errorDetail string) {
 	w.WriteHeader(http.StatusUnprocessableEntity)
 	responseBody, err := json.Marshal(newUnprocessableEntityError(errorDetail))
+	if err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		return
+	}
+	w.Write(responseBody)
+}
+
+func writeUniquenessError(w http.ResponseWriter, detail string) {
+	w.WriteHeader(http.StatusUnprocessableEntity)
+	responseBody, err := json.Marshal(newUniquenessError(detail))
 	if err != nil {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		return

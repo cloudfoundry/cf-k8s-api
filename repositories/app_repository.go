@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"code.cloudfoundry.org/cf-k8s-api/messages"
 	"context"
 	"errors"
 
@@ -87,20 +88,20 @@ func (f *AppRepo) GetApp(client client.Client, appGUID string, namespace string)
 	return app, err
 }
 
-func (f *AppRepo) CheckForApp(client client.Client, appGUID string, namespace string) error {
+func (f *AppRepo) AppExists(client client.Client, appGUID string, namespace string) (bool, error) {
 	_, err := f.GetApp(client, appGUID, namespace)
 	if err != nil {
 		switch errtype := err.(type) {
 		case *k8serrors.StatusError:
 			reason := errtype.Status().Reason
 			if reason == metav1.StatusReasonNotFound {
-				return ResourceNotFoundError{Err: err}
+				return false, nil
 			}
 		default:
-			return err
+			return true, err
 		}
 	}
-	return err
+	return true, nil
 }
 
 func (f *AppRepo) CreateApp(client client.Client, appRecord AppRecord) (AppRecord, error) {
@@ -149,6 +150,10 @@ func (f *AppRepo) CfAppToResponseApp(cfApp workloadsv1alpha1.CFApp) AppRecord {
 			},
 		},
 	}
+}
+
+func (f *AppRepo) AppMessageToAppRecord(appMessage messages.AppCreateMessage) AppRecord {
+	return AppRecord{}
 }
 
 func (f *AppRepo) returnApps(apps []workloadsv1alpha1.CFApp) (AppRecord, error) {

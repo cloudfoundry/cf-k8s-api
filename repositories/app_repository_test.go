@@ -222,9 +222,9 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("check for app should return an error", func() {
-				err := appRepo.CheckForApp(client, "test-app-guid", "default")
-				g.Expect(err).To(HaveOccurred())
-				g.Expect(err).To(MatchError("Resource not found."))
+				exists, err := appRepo.AppExists(client, "test-app-guid", "default")
+				g.Expect(exists).To(BeFalse())
+				g.Expect(err).NotTo(HaveOccurred())
 			})
 
 			it("should create an app", func() {
@@ -282,7 +282,8 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 				appRepo := repositories.AppRepo{}
 				client, _ := appRepo.ConfigureClient(k8sConfig)
 
-				err := appRepo.CheckForApp(client, "some-other-app", "default")
+				exists, err := appRepo.AppExists(client, "some-other-app", "default")
+				g.Expect(exists).To(BeTrue())
 				g.Expect(err).NotTo(HaveOccurred())
 			})
 
