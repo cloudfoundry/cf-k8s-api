@@ -449,7 +449,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			it("has the expected error response body", func() {
 				expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
 					Title:  "CF-UnprocessableEntity",
-					Detail: "Buildpacks must be a []string,Stack must be a string",
+					Detail: "Type must be a string,Buildpacks must be a []string,Stack must be a string",
 					Code:   10008,
 				}}})
 				Expect(err).NotTo(HaveOccurred())
@@ -557,7 +557,9 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 
-		when("the namespace exist and app does not exist", func() {
+		when("the namespace exists and app does not exist", func() {
+			var fakeAppRepo *apisfakes.FakeCFAppRepository
+
 			it.Before(func() {
 				FetchNamespaceResponse = repositories.SpaceRecord{}
 				FetchNamespaceErr = nil
@@ -588,7 +590,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				req, err := http.NewRequest("POST", "/v3/apps", bytes.NewReader(requestBody))
 				Expect(err).NotTo(HaveOccurred())
 
-				fakeAppRepo := &apisfakes.FakeCFAppRepository{}
+				fakeAppRepo = &apisfakes.FakeCFAppRepository{}
 				fakeAppRepo.FetchNamespaceReturns(FetchNamespaceResponse, FetchNamespaceErr)
 				fakeAppRepo.AppExistsReturns(false, nil)
 				fakeAppRepo.CreateAppReturns(CreateAppResponse, nil)
@@ -604,6 +606,22 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				handler := http.HandlerFunc(apiHandler.AppCreateHandler)
 
 				handler.ServeHTTP(rr, req)
+			})
+
+			it("should invoke repo CreateApp with a random GUID", func() {
+				Expect(fakeAppRepo.CreateAppCallCount()).To(Equal(1), "Repo CreateApp count was not invoked 1 time")
+				_, createAppRecord := fakeAppRepo.CreateAppArgsForCall(0)
+				Expect(createAppRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"), "CreateApp record GUID was not a 36 character guid")
+			})
+
+			it("return status 200OK", func() {
+				httpStatus := rr.Code
+				Expect(httpStatus).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+			})
+
+			it("returns Content-Type as JSON in header", func() {
+				contentTypeHeader := rr.Header().Get("Content-Type")
+				Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
 			})
 
 			it("returns the created app in the response", func() {
@@ -661,13 +679,8 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 					},
 				})
 
-				Expect(err).NotTo(HaveOccurred())
 				Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
-			})
-
-			it("return status 200OK", func() {
-				httpStatus := rr.Code
-				Expect(httpStatus).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 		})

@@ -32,7 +32,7 @@ type AppLinks struct {
 	Features             Link `json:"features"`
 }
 
-func NewPresentedApp(responseApp repositories.AppRecord, baseURL string) AppResponse {
+func AppRecordToAppResponse(responseApp repositories.AppRecord, baseURL string) AppResponse {
 	return AppResponse{
 		Name:  responseApp.Name,
 		GUID:  responseApp.GUID,

@@ -1,7 +1,6 @@
 package repositories
 
 import (
-	"code.cloudfoundry.org/cf-k8s-api/messages"
 	"context"
 	"errors"
 
@@ -79,7 +78,7 @@ func (f *AppRepo) FetchApp(client client.Client, appGUID string) (AppRecord, err
 	return f.returnApps(matches)
 }
 
-func (f *AppRepo) GetApp(client client.Client, appGUID string, namespace string) (*workloadsv1alpha1.CFApp, error) {
+func (f *AppRepo) getAppCR(client client.Client, appGUID string, namespace string) (*workloadsv1alpha1.CFApp, error) {
 	app := &workloadsv1alpha1.CFApp{}
 	err := client.Get(context.Background(), types.NamespacedName{
 		Namespace: namespace,
@@ -89,7 +88,7 @@ func (f *AppRepo) GetApp(client client.Client, appGUID string, namespace string)
 }
 
 func (f *AppRepo) AppExists(client client.Client, appGUID string, namespace string) (bool, error) {
-	_, err := f.GetApp(client, appGUID, namespace)
+	_, err := f.getAppCR(client, appGUID, namespace)
 	if err != nil {
 		switch errtype := err.(type) {
 		case *k8serrors.StatusError:
@@ -150,10 +149,6 @@ func (f *AppRepo) CfAppToResponseApp(cfApp workloadsv1alpha1.CFApp) AppRecord {
 			},
 		},
 	}
-}
-
-func (f *AppRepo) AppMessageToAppRecord(appMessage messages.AppCreateMessage) AppRecord {
-	return AppRecord{}
 }
 
 func (f *AppRepo) returnApps(apps []workloadsv1alpha1.CFApp) (AppRecord, error) {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"net/http"
 
 	"code.cloudfoundry.org/cf-k8s-api/presenters"
@@ -60,7 +61,7 @@ func (h *AppHandler) AppGetHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	responseBody, err := json.Marshal(presenters.NewPresentedApp(app, h.ServerURL))
+	responseBody, err := json.Marshal(presenters.AppRecordToAppResponse(app, h.ServerURL))
 	if err != nil {
 		h.Logger.Error(err, "Failed to render response", "AppGUID", appGUID)
 		writeUnknownErrorResponse(w)
@@ -71,6 +72,7 @@ func (h *AppHandler) AppGetHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 
 	var appCreateMessage messages.AppCreateMessage
 	err := DecodePayload(r, &appCreateMessage)
@@ -124,8 +126,16 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//TODO: figure out the right file to implement the function
-	//appRecord := h.AppRepo.AppMessageToAppRecord(&appCreateMessage)
-	//responseAppRecord, err := h.AppRepo.CreateApp(client,appRecord)
+	createAppRecord := messages.AppCreateMessageToAppRecord(appCreateMessage)
+	createAppRecord.GUID = uuid.New().String()
 
+	responseAppRecord, err := h.AppRepo.CreateApp(client,createAppRecord)
+	responseBody, err := json.Marshal(presenters.AppRecordToAppResponse(responseAppRecord, h.ServerURL))
+	if err != nil {
+		h.Logger.Error(err, "Failed to render response", "App Name", appName)
+		writeUnknownErrorResponse(w)
+		return
+	}
+
+	w.Write(responseBody)
 }

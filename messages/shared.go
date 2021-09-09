@@ -1,6 +1,7 @@
 package messages
 
 type Lifecycle struct {
+	Type string `json:"type" validate:"required"`
 	Data LifecycleData `json:"data" validate:"required"`
 }
 
