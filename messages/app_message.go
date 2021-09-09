@@ -6,11 +6,9 @@ import (
 
 // TODO: Make these configurable
 var (
-	defaultLifecycleType = "buildpack"
+	defaultLifecycleType  = "buildpack"
 	defaultLifecycleStack = "cflinuxfs3"
 )
-
-
 
 type AppCreateMessage struct {
 	Name                 string            `json:"name" validate:"required"`
@@ -24,14 +22,13 @@ func AppCreateMessageToAppRecord(requestApp AppCreateMessage) repositories.AppRe
 	lifecycleBlock := repositories.Lifecycle{
 		Type: defaultLifecycleType,
 		Data: repositories.LifecycleData{
-			Stack:      defaultLifecycleStack,
+			Stack: defaultLifecycleStack,
 		},
 	}
 	if requestApp.Lifecycle != nil {
 		lifecycleBlock.Data.Stack = requestApp.Lifecycle.Data.Stack
 		lifecycleBlock.Data.Buildpacks = requestApp.Lifecycle.Data.Buildpacks
 	}
-
 
 	return repositories.AppRecord{
 		Name:      requestApp.Name,

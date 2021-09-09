@@ -127,9 +127,11 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	createAppRecord := messages.AppCreateMessageToAppRecord(appCreateMessage)
+
+	// Set GUID
 	createAppRecord.GUID = uuid.New().String()
 
-	responseAppRecord, err := h.AppRepo.CreateApp(client,createAppRecord)
+	responseAppRecord, err := h.AppRepo.CreateApp(client, createAppRecord)
 	responseBody, err := json.Marshal(presenters.AppRecordToAppResponse(responseAppRecord, h.ServerURL))
 	if err != nil {
 		h.Logger.Error(err, "Failed to render response", "App Name", appName)
