@@ -2,12 +2,13 @@ package apis_test
 
 import (
 	"bytes"
-	"code.cloudfoundry.org/cf-k8s-api/apis/apisfakes"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"code.cloudfoundry.org/cf-k8s-api/apis/apisfakes"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 

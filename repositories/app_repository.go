@@ -7,7 +7,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/api/v1alpha1"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
