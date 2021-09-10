@@ -2,7 +2,11 @@ package repositories_test
 
 import (
 	"context"
+	"fmt"
+	"github.com/google/uuid"
+	"k8s.io/apimachinery/pkg/types"
 	"testing"
+	"time"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -178,12 +182,74 @@ func testAppGet(t *testing.T, when spec.G, it spec.S) {
 	})
 }
 
+func intializeAppCR(appName string, appGUID string, spaceGUID string) workloadsv1alpha1.CFApp {
+	return workloadsv1alpha1.CFApp{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      appGUID,
+			Namespace: spaceGUID,
+		},
+		Spec: workloadsv1alpha1.CFAppSpec{
+			Name:         appName,
+			DesiredState: "STOPPED",
+			Lifecycle: workloadsv1alpha1.Lifecycle{
+				Type: "buildpack",
+				Data: workloadsv1alpha1.LifecycleData{
+					Buildpacks: []string{},
+					Stack:      "",
+				},
+			},
+		},
+	}
+}
+
+func intializeAppRecord(appName string, appGUID string, spaceGUID string) repositories.AppRecord {
+	return repositories.AppRecord{
+		Name:      appName,
+		GUID:      appGUID,
+		SpaceGUID: spaceGUID,
+		State:     "STOPPED",
+		Lifecycle: repositories.Lifecycle{
+			Type: "buildpack",
+			Data: repositories.LifecycleData{
+				Buildpacks: []string{},
+				Stack:      "cflinuxfs3",
+			},
+		},
+	}
+}
+
+func generateAppGUID() string {
+	newUUID, err := uuid.NewUUID()
+	if err != nil {
+		errorMessage := fmt.Sprintf("could not generate a UUID %v", err)
+		panic(errorMessage)
+	}
+	return newUUID.String()
+}
+
+func cleanupApp(k8sClient client.Client, appGUID, appNamespace string) error {
+	app := workloadsv1alpha1.CFApp{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      appGUID,
+			Namespace: appNamespace,
+		},
+	}
+	return k8sClient.Delete(context.Background(), &app)
+}
+
 func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
 
-	when("creating an App record", func() {
+	const (
+		defaultNamespace = "default"
+	)
 
-		when("space does not exists", func() {
+	when("creating an App record", func() {
+		const (
+			testAppName = "test-app-name"
+		)
+
+		when("space does not exist", func() {
 
 			it("returns an unauthorized or not found err", func() {
 				appRepo := repositories.AppRepo{}
@@ -198,49 +264,85 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 
 		when("app does not already exist", func() {
 			var (
-				appRepo   repositories.AppRepo
-				client    client.Client
-				appRecord repositories.AppRecord
+				appRepo     repositories.AppRepo
+				client      client.Client
+				testAppGUID string
+				appRecord   repositories.AppRecord
 			)
 
 			it.Before(func() {
 				appRepo = repositories.AppRepo{}
 				client, _ = appRepo.ConfigureClient(k8sConfig)
-				appRecord = repositories.AppRecord{
-					Name:      "test-app",
-					GUID:      "test-app-guid",
-					SpaceGUID: "default",
-					State:     "STOPPED",
-					Lifecycle: repositories.Lifecycle{
-						Type: "buildpack",
-						Data: repositories.LifecycleData{
-							Buildpacks: []string{"some-magic-buildpack"},
-							Stack:      "some-magic-stack",
-						},
-					},
-				}
+				testAppGUID = generateAppGUID()
+				appRecord = intializeAppRecord(testAppName, testAppGUID, defaultNamespace)
 			})
 
-			it("check for app should return an error", func() {
-				exists, err := appRepo.AppExists(client, "test-app-guid", "default")
+			it("returns false when checking if the App Exists", func() {
+				exists, err := appRepo.AppExists(client, testAppGUID, defaultNamespace)
 				g.Expect(exists).To(BeFalse())
 				g.Expect(err).NotTo(HaveOccurred())
 			})
 
-			it("should create an app", func() {
+			it("should create a new app successfully", func() {
 				createdAppRecord, err := appRepo.CreateApp(client, appRecord)
 				g.Expect(err).To(BeNil())
 				g.Expect(createdAppRecord).NotTo(BeNil())
 
-				// TODO: figure out a better method of cleanup
-				ctx := context.Background()
-				cfApp := appRepo.AppRecordToCfApp(appRecord)
-				g.Expect(k8sClient.Delete(ctx, &cfApp)).To(Succeed())
+				cfAppLookupKey := types.NamespacedName{Name: testAppGUID, Namespace: defaultNamespace}
+				createdCFApp := new(workloadsv1alpha1.CFApp)
+				g.Eventually(func() string {
+					err := k8sClient.Get(context.Background(), cfAppLookupKey, createdCFApp)
+					if err != nil {
+						return ""
+					}
+					return createdCFApp.Name
+				}, 10*time.Second, 250*time.Millisecond).Should(Equal(testAppGUID))
+				g.Expect(cleanupApp(k8sClient, testAppGUID, defaultNamespace)).To(Succeed())
 			})
 
+			when("an app is created with the repository", func() {
+				var (
+					creationTime time.Time
+					createdAppRecord repositories.AppRecord
+				)
+				it.Before(func() {
+					creationTime = time.Now()
+
+					var err error
+					createdAppRecord, err = appRepo.CreateApp(client, appRecord)
+					g.Expect(err).To(BeNil())
+				})
+				it.After(func() {
+					g.Expect(cleanupApp(k8sClient, testAppGUID, defaultNamespace)).To(Succeed())
+				})
+
+				it("should return a non-empty AppRecord", func() {
+					g.Expect(createdAppRecord).NotTo(Equal(repositories.AppRecord{}))
+				})
+
+				it("should return an AppRecord with matching GUID, spaceGUID, and name", func() {
+					g.Expect(createdAppRecord.GUID).To(Equal(testAppGUID), "App GUID in record did not match input")
+					g.Expect(createdAppRecord.SpaceGUID).To(Equal(defaultNamespace), "App SpaceGUID in record did not match input")
+					g.Expect(createdAppRecord.Name).To(Equal(testAppName), "App Name in record did not match input")
+				})
+
+				it("should return an AppRecord with CreatedAt and UpdatedAt fields that make sense", func() {
+					testTime := time.Now()
+					recordCreatedTime, err := time.Parse(time.RFC3339, createdAppRecord.CreatedAt)
+					g.Expect(err).To(BeNil(), "There was an error converting the createAppRecord CreatedTime to string")
+					recordUpdatedTime, err := time.Parse(time.RFC3339, createdAppRecord.UpdatedAt)
+					g.Expect(err).To(BeNil(), "There was an error converting the createAppRecord UpdatedTime to string")
+					fmt.Sprintf("%v,%v,%v,%v", creationTime, testTime, recordCreatedTime, recordUpdatedTime)
+
+
+					g.Expect(recordCreatedTime.After(creationTime)).To(BeTrue(), "app record creation time was not after creation time")
+					g.Expect(recordCreatedTime.After(creationTime)).To(BeTrue(), "app record creation time was not before test checking time")
+				})
+
+			})
 		})
 
-		when("app already exists", func() {
+		when("the app already exists", func() {
 			var (
 				cfApp1 *workloadsv1alpha1.CFApp
 				// appRecord1 repositories.AppRecord
@@ -253,7 +355,7 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 				cfApp1 = &workloadsv1alpha1.CFApp{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "some-other-app",
-						Namespace: "default",
+						Namespace: defaultNamespace,
 					},
 					Spec: workloadsv1alpha1.CFAppSpec{
 						Name:         "test-app1",
@@ -278,7 +380,7 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 				g.Expect(k8sClient.Delete(ctx, cfApp1)).To(Succeed())
 			})
 
-			it("check for app should not return an error", func() {
+			it("should return true when AppExists is called", func() {
 				appRepo := repositories.AppRepo{}
 				client, _ := appRepo.ConfigureClient(k8sConfig)
 
@@ -288,7 +390,7 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("should error when trying to create the same app again", func() {
-				createdAppRecord, err := appRepo.CreateApp(client, appRepo.CfAppToResponseApp(*cfApp1))
+				createdAppRecord, err := appRepo.CreateApp(client, appRepo.CFAppToResponseApp(*cfApp1))
 				emptyAppRecord := repositories.AppRecord{}
 				g.Expect(err).NotTo(BeNil())
 				g.Expect(createdAppRecord).To(Equal(emptyAppRecord))

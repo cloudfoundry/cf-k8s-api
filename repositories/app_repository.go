@@ -1,14 +1,13 @@
 package repositories
 
 import (
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	"context"
 	"errors"
-
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,6 +53,12 @@ type LifecycleData struct {
 type SpaceRecord struct {
 	Name             string
 	OrganizationGUID string
+}
+
+type AppEnvironmentVariablesRecord struct {
+	AppGUID              string
+	SpaceGUID            string
+	EnvironmentVariables map[string]string
 }
 
 // TODO: Make a general ConfigureClient function / config and client generating package
@@ -104,15 +109,15 @@ func (f *AppRepo) AppExists(client client.Client, appGUID string, namespace stri
 }
 
 func (f *AppRepo) CreateApp(client client.Client, appRecord AppRecord) (AppRecord, error) {
-	cfApp := f.AppRecordToCfApp(appRecord)
+	cfApp := f.AppRecordToCFApp(appRecord)
 	err := client.Create(context.Background(), &cfApp)
 	if err != nil {
 		return AppRecord{}, err
 	}
-	return f.CfAppToResponseApp(cfApp), err
+	return f.CFAppToResponseApp(cfApp), err
 }
 
-func (f *AppRepo) AppRecordToCfApp(appRecord AppRecord) workloadsv1alpha1.CFApp {
+func (f *AppRepo) AppRecordToCFApp(appRecord AppRecord) workloadsv1alpha1.CFApp {
 	return workloadsv1alpha1.CFApp{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       Kind,
@@ -136,7 +141,10 @@ func (f *AppRepo) AppRecordToCfApp(appRecord AppRecord) workloadsv1alpha1.CFApp 
 	}
 }
 
-func (f *AppRepo) CfAppToResponseApp(cfApp workloadsv1alpha1.CFApp) AppRecord {
+func (f *AppRepo) CFAppToResponseApp(cfApp workloadsv1alpha1.CFApp) AppRecord {
+	updatedAtTime := "2019-10-12T07:20:50.52Z"
+	//updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfApp.ObjectMeta)
+
 	return AppRecord{
 		GUID:      cfApp.Name,
 		Name:      cfApp.Spec.Name,
@@ -148,6 +156,8 @@ func (f *AppRepo) CfAppToResponseApp(cfApp workloadsv1alpha1.CFApp) AppRecord {
 				Stack:      cfApp.Spec.Lifecycle.Data.Stack,
 			},
 		},
+		CreatedAt: cfApp.CreationTimestamp.UTC().Format(time.RFC3339),
+		UpdatedAt: updatedAtTime,
 	}
 }
 
@@ -159,7 +169,7 @@ func (f *AppRepo) returnApps(apps []workloadsv1alpha1.CFApp) (AppRecord, error) 
 		return AppRecord{}, errors.New("duplicate apps exist")
 	}
 
-	return f.CfAppToResponseApp(apps[0]), nil
+	return f.CFAppToResponseApp(apps[0]), nil
 }
 
 func (f *AppRepo) filterAppsByName(apps []workloadsv1alpha1.CFApp, name string) []workloadsv1alpha1.CFApp {
@@ -195,3 +205,29 @@ func (f *AppRepo) v1NamespaceToSpaceRecord(namespace *v1.Namespace) SpaceRecord 
 		OrganizationGUID: "",
 	}
 }
+
+/*
+func (f *AppRepo) CreateOrUpdateAppEnvironmentVariables(client client.Client, envVariables AppEnvironmentVariablesRecord) (AppEnvironmentVariablesRecord, error) {
+	secretObj := f.appEnvVarsRecordToSecret(envVariables)
+	err := client.Create(context.Background(), &cfApp)
+	if err != nil {
+		return AppRecord{}, err
+	}
+	return f.CFAppToResponseApp(cfApp), err
+}
+
+func (f *AppRepo) appEnvVarsRecordToSecret(envVariables AppEnvironmentVariablesRecord) corev1.Secret {
+	labels := make(map[string]string, 1)
+	appRequest.Metadata.Labels["apps.cloudfoundry.org/appGuid"] = envVariables.AppGUID
+	return corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        envVariables.AppGUID + "-env",
+			Namespace:   envVariables.SpaceGUID,
+			Labels:      appRequest.Metadata.Labels,
+			Annotations: appRequest.Metadata.Annotations,
+		},
+		StringData: appRequest.EnvironmentVariables,
+	}
+}
+
+*/
