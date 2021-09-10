@@ -11,7 +11,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"code.cloudfoundry.org/cf-k8s-api/apis"
-	"code.cloudfoundry.org/cf-k8s-api/presenters"
+	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
@@ -79,57 +79,57 @@ func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns the App in the response", func() {
-			expectedBody, err := json.Marshal(presenters.AppResponse{
+			expectedBody, err := json.Marshal(presenter.AppResponse{
 				Name:  "test-app",
 				GUID:  "test-app-guid",
 				State: "STOPPED",
-				Relationships: presenters.Relationships{
-					"space": presenters.Relationship{
+				Relationships: presenter.Relationships{
+					"space": presenter.Relationship{
 						GUID: "test-space-guid",
 					},
 				},
-				Lifecycle: presenters.Lifecycle{Data: presenters.LifecycleData{
+				Lifecycle: presenter.Lifecycle{Data: presenter.LifecycleData{
 					Buildpacks: []string{},
 					Stack:      "",
 				}},
-				Metadata: presenters.Metadata{
+				Metadata: presenter.Metadata{
 					Labels:      nil,
 					Annotations: nil,
 				},
-				Links: presenters.AppLinks{
-					Self: presenters.Link{
+				Links: presenter.AppLinks{
+					Self: presenter.Link{
 						HREF: defaultServerURI("/v3/apps/test-app-guid"),
 					},
-					Space: presenters.Link{
+					Space: presenter.Link{
 						HREF: defaultServerURI("/v3/spaces/test-space-guid"),
 					},
-					Processes: presenters.Link{
+					Processes: presenter.Link{
 						HREF: defaultServerURI("/v3/apps/test-app-guid/processes"),
 					},
-					Packages: presenters.Link{
+					Packages: presenter.Link{
 						HREF: defaultServerURI("/v3/apps/test-app-guid/packages"),
 					},
-					EnvironmentVariables: presenters.Link{
+					EnvironmentVariables: presenter.Link{
 						HREF: defaultServerURI("/v3/apps/test-app-guid/environment_variables"),
 					},
-					CurrentDroplet: presenters.Link{
+					CurrentDroplet: presenter.Link{
 						HREF: defaultServerURI("/v3/apps/test-app-guid/droplets/current"),
 					},
-					Droplets: presenters.Link{
+					Droplets: presenter.Link{
 						HREF: defaultServerURI("/v3/apps/test-app-guid/droplets"),
 					},
-					Tasks: presenters.Link{},
-					StartAction: presenters.Link{
+					Tasks: presenter.Link{},
+					StartAction: presenter.Link{
 						HREF:   defaultServerURI("/v3/apps/test-app-guid/actions/start"),
 						Method: "POST",
 					},
-					StopAction: presenters.Link{
+					StopAction: presenter.Link{
 						HREF:   defaultServerURI("/v3/apps/test-app-guid/actions/stop"),
 						Method: "POST",
 					},
-					Revisions:         presenters.Link{},
-					DeployedRevisions: presenters.Link{},
-					Features:          presenters.Link{},
+					Revisions:         presenter.Link{},
+					DeployedRevisions: presenter.Link{},
+					Features:          presenter.Link{},
 				},
 			})
 
@@ -160,7 +160,7 @@ func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns a CF API formatted Error response", func() {
-			expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+			expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 				Title:  "App not found",
 				Detail: "CF-ResourceNotFound",
 				Code:   10010,
@@ -196,7 +196,7 @@ func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns a CF API formatted Error response", func() {
-			expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+			expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 				Title:  "UnknownError",
 				Detail: "An unknown error occurred.",
 				Code:   10001,

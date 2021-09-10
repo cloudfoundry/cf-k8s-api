@@ -1,4 +1,4 @@
-package presenters
+package presenter
 
 import (
 	"fmt"
@@ -15,8 +15,8 @@ type RouteResponse struct {
 	URL           string             `json:"url"`
 	Destinations  []routeDestination `json:"destinations"`
 	Relationships Relationships      `json:"relationships"`
-	Metadata      Metadata           `json:"metadata"`
-	Links         RouteLinks         `json:"links"`
+	Metadata Metadata   `json:"metadata"`
+	Links    routeLinks `json:"links"`
 }
 
 type routeDestination struct {
@@ -32,14 +32,14 @@ type routeDestinationAppProcess struct {
 	Type string `json:"type"`
 }
 
-type RouteLinks struct {
+type routeLinks struct {
 	Self         Link `json:"self"`
 	Space        Link `json:"space"`
 	Domain       Link `json:"domain"`
 	Destinations Link `json:"destinations"`
 }
 
-func NewPresentedRoute(route repositories.RouteRecord, baseURL string) RouteResponse {
+func ForRoute(route repositories.RouteRecord, baseURL string) RouteResponse {
 	routeResponse := RouteResponse{
 		GUID:     route.GUID,
 		Protocol: route.Protocol,
@@ -58,7 +58,7 @@ func NewPresentedRoute(route repositories.RouteRecord, baseURL string) RouteResp
 			Labels:      map[string]string{},
 			Annotations: map[string]string{},
 		},
-		Links: RouteLinks{
+		Links: routeLinks{
 			Self: Link{
 				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/routes/%s", route.GUID)),
 			},

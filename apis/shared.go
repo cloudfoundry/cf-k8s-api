@@ -5,19 +5,19 @@ import (
 	"fmt"
 	"net/http"
 
-	"code.cloudfoundry.org/cf-k8s-api/presenters"
+	"code.cloudfoundry.org/cf-k8s-api/presenter"
 )
 
-func newNotFoundError(resourceName string) presenters.ErrorsResponse {
-	return presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+func newNotFoundError(resourceName string) presenter.ErrorsResponse {
+	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 		Title:  fmt.Sprintf("%s not found", resourceName),
 		Detail: "CF-ResourceNotFound",
 		Code:   10010,
 	}}}
 }
 
-func newUnknownError() presenters.ErrorsResponse {
-	return presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+func newUnknownError() presenter.ErrorsResponse {
+	return presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 		Title:  "UnknownError",
 		Detail: "An unknown error occurred.",
 		Code:   10001,

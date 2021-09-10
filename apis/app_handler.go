@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"code.cloudfoundry.org/cf-k8s-api/presenters"
+	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
@@ -54,7 +54,7 @@ func (h *AppHandler) AppGetHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	responseBody, err := json.Marshal(presenters.NewPresentedApp(app, h.ServerURL))
+	responseBody, err := json.Marshal(presenter.ForApp(app, h.ServerURL))
 	if err != nil {
 		h.Logger.Error(err, "Failed to render response", "AppGUID", appGUID)
 		writeUnknownErrorResponse(w)
