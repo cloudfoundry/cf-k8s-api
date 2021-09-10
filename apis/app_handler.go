@@ -12,6 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . CFAppRepository
 type CFAppRepository interface {
 	ConfigureClient(*rest.Config) (client.Client, error)
 	FetchApp(client.Client, string) (repositories.AppRecord, error)

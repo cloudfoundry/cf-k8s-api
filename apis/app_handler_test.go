@@ -1,13 +1,13 @@
 package apis_test
 
 import (
+	"code.cloudfoundry.org/cf-k8s-api/apis/apisfakes"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"code.cloudfoundry.org/cf-k8s-api/apis"
@@ -16,34 +16,13 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
-
-type FakeAppRepo struct {
-	FetchAppFunc func(_ client.Client, _ string) (repositories.AppRecord, error)
-}
 
 var (
 	FetchAppResponseApp repositories.AppRecord
 	FetchAppErr         error
 )
-
-func (f *FakeAppRepo) ConfigureClient(config *rest.Config) (client.Client, error) {
-	err := workloadsv1alpha1.AddToScheme(scheme.Scheme)
-	if err != nil {
-		return nil, err
-	}
-
-	fakeClientBuilder := &fake.ClientBuilder{}
-	return fakeClientBuilder.WithScheme(scheme.Scheme).WithObjects(&workloadsv1alpha1.CFApp{}).Build(), nil
-}
-
-func (f *FakeAppRepo) FetchApp(client client.Client, appGUID string) (repositories.AppRecord, error) {
-	return f.FetchAppFunc(client, appGUID)
-}
 
 func TestApp(t *testing.T) {
 	spec.Run(t, "object", testAppGetHandler, spec.Report(report.Terminal{}))
@@ -58,6 +37,7 @@ func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
 
 	when("the GET /v3/apps/:guid endpoint returns successfully", func() {
 		it.Before(func() {
+			fakeAppRepo := &apisfakes.FakeCFAppRepository{}
 			FetchAppResponseApp = repositories.AppRecord{
 				GUID:      "test-app-guid",
 				Name:      "test-app",
@@ -70,7 +50,7 @@ func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
 					},
 				},
 			}
-			FetchAppErr = nil
+			fakeAppRepo.FetchAppReturns(FetchAppResponseApp, nil)
 
 			req, err := http.NewRequest("GET", "/v3/apps/my-app-guid", nil)
 			g.Expect(err).NotTo(HaveOccurred())
@@ -78,11 +58,7 @@ func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
 			rr = httptest.NewRecorder()
 			apiHandler := apis.AppHandler{
 				ServerURL: defaultServerURL,
-				AppRepo: &FakeAppRepo{
-					FetchAppFunc: func(_ client.Client, _ string) (repositories.AppRecord, error) {
-						return FetchAppResponseApp, FetchAppErr
-					},
-				},
+				AppRepo:   fakeAppRepo,
 				Logger:    logf.Log.WithName("TestAppHandler"),
 				K8sConfig: &rest.Config{},
 			}
@@ -164,8 +140,8 @@ func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
 
 	when("the app cannot be found", func() {
 		it.Before(func() {
-			FetchAppResponseApp = repositories.AppRecord{}
-			FetchAppErr = repositories.NotFoundError{Err: errors.New("not found")}
+			fakeAppRepo := &apisfakes.FakeCFAppRepository{}
+			fakeAppRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{Err: errors.New("not found")})
 
 			req, err := http.NewRequest("GET", "/v3/apps/my-app-guid", nil)
 			g.Expect(err).NotTo(HaveOccurred())
@@ -173,11 +149,7 @@ func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
 			rr = httptest.NewRecorder()
 			apiHandler := apis.AppHandler{
 				ServerURL: defaultServerURL,
-				AppRepo: &FakeAppRepo{
-					FetchAppFunc: func(_ client.Client, _ string) (repositories.AppRecord, error) {
-						return FetchAppResponseApp, FetchAppErr
-					},
-				},
+				AppRepo:   fakeAppRepo,
 				Logger:    logf.Log.WithName("TestAppHandler"),
 				K8sConfig: &rest.Config{},
 			}
@@ -204,8 +176,8 @@ func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
 
 	when("there is some other error fetching the app", func() {
 		it.Before(func() {
-			FetchAppResponseApp = repositories.AppRecord{}
-			FetchAppErr = errors.New("unknown!")
+			fakeAppRepo := &apisfakes.FakeCFAppRepository{}
+			fakeAppRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("unknown"))
 
 			req, err := http.NewRequest("GET", "/v3/apps/my-app-guid", nil)
 			g.Expect(err).NotTo(HaveOccurred())
@@ -213,11 +185,7 @@ func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
 			rr = httptest.NewRecorder()
 			apiHandler := apis.AppHandler{
 				ServerURL: defaultServerURL,
-				AppRepo: &FakeAppRepo{
-					FetchAppFunc: func(_ client.Client, _ string) (repositories.AppRecord, error) {
-						return FetchAppResponseApp, FetchAppErr
-					},
-				},
+				AppRepo:   fakeAppRepo,
 				Logger:    logf.Log.WithName("TestAppHandler"),
 				K8sConfig: &rest.Config{},
 			}
