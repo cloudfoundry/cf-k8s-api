@@ -13,15 +13,23 @@ type RouteResponse struct {
 	Host          string             `json:"host"`
 	Path          string             `json:"path"`
 	URL           string             `json:"url"`
-	Destinations  []RouteDestination `json:"destinations"`
+	Destinations  []routeDestination `json:"destinations"`
 	Relationships Relationships      `json:"relationships"`
 	Metadata      Metadata           `json:"metadata"`
 	Links         RouteLinks         `json:"links"`
 }
 
-type RouteDestination struct {
-	AppGUID     string `json:"app.guid"`
-	ProcessType string `json:"app.process.type"`
+type routeDestination struct {
+	App         routeDestinationApp `json:"app"`
+}
+
+type routeDestinationApp struct {
+	AppGUID     string `json:"guid"`
+	Process routeDestinationAppProcess `json:"process"`
+}
+
+type routeDestinationAppProcess struct {
+	Type string `json:"type"`
 }
 
 type RouteLinks struct {
@@ -34,7 +42,7 @@ type RouteLinks struct {
 func NewPresentedRoute(route repositories.RouteRecord, baseURL string) RouteResponse {
 	routeResponse := RouteResponse{
 		GUID:     route.GUID,
-		Protocol: string(route.Protocol),
+		Protocol: route.Protocol,
 		Host:     route.Host,
 		Path:     route.Path,
 		URL:      url(route),

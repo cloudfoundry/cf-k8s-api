@@ -131,40 +131,42 @@ func testRouteHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns the Route in the response", func() {
-			expectedBody, err := json.Marshal(presenters.RouteResponse{
-				GUID:     "test-route-guid",
-				Protocol: "http",
-				Host:     "test-route-name",
-				URL:      "test-route-name.example.org",
-				Relationships: presenters.Relationships{
-					"space": presenters.Relationship{
-						GUID: "test-space-guid",
+			expectedBody :=`{
+				"guid":     "test-route-guid",
+				"port": null,
+				"path": "",
+				"protocol": "http",
+				"host":     "test-route-name",
+				"url":      "test-route-name.example.org",
+				"destinations": null,
+				"relationships": {
+					"space": {
+						"guid": "test-space-guid"
 					},
-					"domain": presenters.Relationship{
-						GUID: "test-domain-guid",
-					},
+					"domain": {
+						"guid": "test-domain-guid"
+					}
 				},
-				Metadata: presenters.Metadata{
-					Labels:      map[string]string{},
-					Annotations: map[string]string{},
+				"metadata": {
+					"labels": {},
+					"annotations": {}
 				},
-				Links: presenters.RouteLinks{
-					Self: presenters.Link{
-						HREF: defaultServerURI("/v3/routes/test-route-guid"),
+				"links": {
+					"self":{
+						"href": "https://api.example.org/v3/routes/test-route-guid"
 					},
-					Space: presenters.Link{
-						HREF: defaultServerURI("/v3/spaces/test-space-guid"),
+					"space":{
+						"href": "https://api.example.org/v3/spaces/test-space-guid"
 					},
-					Domain: presenters.Link{
-						HREF: defaultServerURI("/v3/domains/test-domain-guid"),
+					"domain":{
+						"href": "https://api.example.org/v3/domains/test-domain-guid"
 					},
-					Destinations: presenters.Link{
-						HREF: defaultServerURI("/v3/routes/test-route-guid/destinations"),
-					},
-				},
-			})
+					"destinations":{
+						"href": "https://api.example.org/v3/routes/test-route-guid/destinations"
+					}
+				}
+			}`
 
-			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
 		})
 
