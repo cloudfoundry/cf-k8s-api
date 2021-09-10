@@ -131,7 +131,7 @@ func testRouteHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns the Route in the response", func() {
-			expectedBody :=`{
+			expectedBody := `{
 				"guid":     "test-route-guid",
 				"port": null,
 				"path": "",

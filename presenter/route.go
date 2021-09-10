@@ -15,16 +15,16 @@ type RouteResponse struct {
 	URL           string             `json:"url"`
 	Destinations  []routeDestination `json:"destinations"`
 	Relationships Relationships      `json:"relationships"`
-	Metadata Metadata   `json:"metadata"`
-	Links    routeLinks `json:"links"`
+	Metadata      Metadata           `json:"metadata"`
+	Links         routeLinks         `json:"links"`
 }
 
 type routeDestination struct {
-	App         routeDestinationApp `json:"app"`
+	App routeDestinationApp `json:"app"`
 }
 
 type routeDestinationApp struct {
-	AppGUID     string `json:"guid"`
+	AppGUID string                     `json:"guid"`
 	Process routeDestinationAppProcess `json:"process"`
 }
 

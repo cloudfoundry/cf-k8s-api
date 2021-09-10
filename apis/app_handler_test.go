@@ -79,61 +79,62 @@ func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns the App in the response", func() {
-			expectedBody, err := json.Marshal(presenter.AppResponse{
-				Name:  "test-app",
-				GUID:  "test-app-guid",
-				State: "STOPPED",
-				Relationships: presenter.Relationships{
-					"space": presenter.Relationship{
-						GUID: "test-space-guid",
-					},
+			expectedBody := `{
+				"name": "test-app",
+				"guid": "test-app-guid",
+				"state": "STOPPED",
+				"relationships": {
+					"space": {
+						"guid": "test-space-guid"
+					}
 				},
-				Lifecycle: presenter.Lifecycle{Data: presenter.LifecycleData{
-					Buildpacks: []string{},
-					Stack:      "",
-				}},
-				Metadata: presenter.Metadata{
-					Labels:      nil,
-					Annotations: nil,
+				"lifecycle": {
+					"data": {
+						"buildpacks": [],
+						"stack": ""
+					}
 				},
-				Links: presenter.AppLinks{
-					Self: presenter.Link{
-						HREF: defaultServerURI("/v3/apps/test-app-guid"),
-					},
-					Space: presenter.Link{
-						HREF: defaultServerURI("/v3/spaces/test-space-guid"),
-					},
-					Processes: presenter.Link{
-						HREF: defaultServerURI("/v3/apps/test-app-guid/processes"),
-					},
-					Packages: presenter.Link{
-						HREF: defaultServerURI("/v3/apps/test-app-guid/packages"),
-					},
-					EnvironmentVariables: presenter.Link{
-						HREF: defaultServerURI("/v3/apps/test-app-guid/environment_variables"),
-					},
-					CurrentDroplet: presenter.Link{
-						HREF: defaultServerURI("/v3/apps/test-app-guid/droplets/current"),
-					},
-					Droplets: presenter.Link{
-						HREF: defaultServerURI("/v3/apps/test-app-guid/droplets"),
-					},
-					Tasks: presenter.Link{},
-					StartAction: presenter.Link{
-						HREF:   defaultServerURI("/v3/apps/test-app-guid/actions/start"),
-						Method: "POST",
-					},
-					StopAction: presenter.Link{
-						HREF:   defaultServerURI("/v3/apps/test-app-guid/actions/stop"),
-						Method: "POST",
-					},
-					Revisions:         presenter.Link{},
-					DeployedRevisions: presenter.Link{},
-					Features:          presenter.Link{},
+				"metadata": {
+					"labels": {},
+					"annotations": {}
 				},
-			})
+				"links": {
+					"self": {
+						"href": "https://api.example.org/v3/apps/test-app-guid"
+					},
+					"space": {
+						"href": "https://api.example.org/v3/spaces/test-space-guid"
+					},
+					"processes": {
+						"href": "https://api.example.org/v3/apps/test-app-guid/processes"
+					},
+					"packages": {
+						"href": "https://api.example.org/v3/apps/test-app-guid/packages"
+					},
+					"environment_variables": {
+						"href": "https://api.example.org/v3/apps/test-app-guid/environment_variables"
+					},
+					"current_droplet": {
+						"href": "https://api.example.org/v3/apps/test-app-guid/droplets/current"
+					},
+					"droplets": {
+						"href": "https://api.example.org/v3/apps/test-app-guid/droplets"
+					},
+					"tasks": {},
+					"start": {
+						"href": "https://api.example.org/v3/apps/test-app-guid/actions/start",
+                  		"method": "POST"
+					},
+					"stop": {
+						"href": "https://api.example.org/v3/apps/test-app-guid/actions/stop",
+						"method": "POST"
+					},
+					"revisions": {},
+					"deployed_revisions": {},
+					"features": {}
+				}
+			}`
 
-			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
 		})
 	})
