@@ -22,6 +22,7 @@ type CFAppRepository interface {
 	FetchApp(client.Client, string) (repositories.AppRecord, error)
 	FetchNamespace(client.Client, string) (repositories.SpaceRecord, error)
 	AppExists(client.Client, string, string) (bool, error)
+	CreateAppEnvironmentVariables(client client.Client, envVariables repositories.AppEnvVarsRecord) (repositories.AppEnvVarsRecord, error)
 	CreateApp(client.Client, repositories.AppRecord) (repositories.AppRecord, error)
 }
 

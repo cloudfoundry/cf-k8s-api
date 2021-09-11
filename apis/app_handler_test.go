@@ -615,6 +615,10 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				Expect(createAppRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"), "CreateApp record GUID was not a 36 character guid")
 			})
 
+			// TODO: Add tests for environment variables
+
+			// TODO: Add tests for metadata and labels?
+
 			it("return status 200OK", func() {
 				httpStatus := rr.Code
 				Expect(httpStatus).Should(Equal(http.StatusOK), "Matching HTTP response code:")

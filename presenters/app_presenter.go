@@ -7,9 +7,12 @@ import (
 )
 
 type AppResponse struct {
-	Name          string        `json:"name"`
-	GUID          string        `json:"guid"`
-	State         string        `json:"state"`
+	Name  string `json:"name"`
+	GUID  string `json:"guid"`
+	State string `json:"state"`
+
+	CreatedAt     string        `json:"created_at"`
+	UpdatedAt     string        `json:"updated_at"`
 	Relationships Relationships `json:"relationships"`
 	Lifecycle     Lifecycle     `json:"lifecycle"`
 	Metadata      Metadata      `json:"metadata"`
@@ -34,9 +37,11 @@ type AppLinks struct {
 
 func AppRecordToAppResponse(responseApp repositories.AppRecord, baseURL string) AppResponse {
 	return AppResponse{
-		Name:  responseApp.Name,
-		GUID:  responseApp.GUID,
-		State: string(responseApp.State),
+		Name:      responseApp.Name,
+		GUID:      responseApp.GUID,
+		State:     string(responseApp.State),
+		CreatedAt: responseApp.CreatedAt,
+		UpdatedAt: responseApp.UpdatedAt,
 		Relationships: Relationships{
 			"space": Relationship{
 				GUID: responseApp.SpaceGUID,

@@ -3,7 +3,6 @@ package repositories
 import (
 	"errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 )
 
 type NotFoundError struct {
@@ -42,7 +41,6 @@ func (e ResourceNotFoundError) Unwrap() error {
 	return e.Err
 }
 
-
 // getTimeLastUpdatedTimestamp takes the ObjectMeta from a CR and extracts the last updated time from its list of ManagedFields
 // Returns an error if the list is empty or the time could not be extracted
 func getTimeLastUpdatedTimestamp(metadata *metav1.ObjectMeta) (string, error) {
@@ -66,5 +64,5 @@ func getTimeLastUpdatedTimestamp(metadata *metav1.ObjectMeta) (string, error) {
 		return "", errors.New("error, could not find a time in metadata.ManagedFields")
 	}
 
-	return latestTime.UTC().Format(time.RFC3339), nil
+	return latestTime.UTC().Format(TimestampFormat), nil
 }

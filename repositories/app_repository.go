@@ -7,8 +7,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -21,11 +23,11 @@ type AppRepo struct{}
 const (
 	StartedState DesiredState = "STARTED"
 	StoppedState DesiredState = "STOPPED"
-)
 
-const (
-	Kind       string = "CFApp"
-	APIVersion string = "workloads.cloudfoundry.org/v1alpha1"
+	Kind            string = "CFApp"
+	APIVersion      string = "workloads.cloudfoundry.org/v1alpha1"
+	TimestampFormat string = time.RFC3339
+	CFAppGUIDLabel  string = "apps.cloudfoundry.org/appGuid"
 )
 
 type AppRecord struct {
@@ -55,7 +57,7 @@ type SpaceRecord struct {
 	OrganizationGUID string
 }
 
-type AppEnvironmentVariablesRecord struct {
+type AppEnvVarsRecord struct {
 	AppGUID              string
 	SpaceGUID            string
 	EnvironmentVariables map[string]string
@@ -109,15 +111,15 @@ func (f *AppRepo) AppExists(client client.Client, appGUID string, namespace stri
 }
 
 func (f *AppRepo) CreateApp(client client.Client, appRecord AppRecord) (AppRecord, error) {
-	cfApp := f.AppRecordToCFApp(appRecord)
+	cfApp := f.appRecordToCFApp(appRecord)
 	err := client.Create(context.Background(), &cfApp)
 	if err != nil {
 		return AppRecord{}, err
 	}
-	return f.CFAppToResponseApp(cfApp), err
+	return f.cfAppToResponseApp(cfApp), err
 }
 
-func (f *AppRepo) AppRecordToCFApp(appRecord AppRecord) workloadsv1alpha1.CFApp {
+func (f *AppRepo) appRecordToCFApp(appRecord AppRecord) workloadsv1alpha1.CFApp {
 	return workloadsv1alpha1.CFApp{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       Kind,
@@ -141,9 +143,8 @@ func (f *AppRepo) AppRecordToCFApp(appRecord AppRecord) workloadsv1alpha1.CFApp 
 	}
 }
 
-func (f *AppRepo) CFAppToResponseApp(cfApp workloadsv1alpha1.CFApp) AppRecord {
-	updatedAtTime := "2019-10-12T07:20:50.52Z"
-	//updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfApp.ObjectMeta)
+func (f *AppRepo) cfAppToResponseApp(cfApp workloadsv1alpha1.CFApp) AppRecord {
+	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfApp.ObjectMeta)
 
 	return AppRecord{
 		GUID:      cfApp.Name,
@@ -156,7 +157,7 @@ func (f *AppRepo) CFAppToResponseApp(cfApp workloadsv1alpha1.CFApp) AppRecord {
 				Stack:      cfApp.Spec.Lifecycle.Data.Stack,
 			},
 		},
-		CreatedAt: cfApp.CreationTimestamp.UTC().Format(time.RFC3339),
+		CreatedAt: cfApp.CreationTimestamp.UTC().Format(TimestampFormat),
 		UpdatedAt: updatedAtTime,
 	}
 }
@@ -169,7 +170,7 @@ func (f *AppRepo) returnApps(apps []workloadsv1alpha1.CFApp) (AppRecord, error) 
 		return AppRecord{}, errors.New("duplicate apps exist")
 	}
 
-	return f.CFAppToResponseApp(apps[0]), nil
+	return f.cfAppToResponseApp(apps[0]), nil
 }
 
 func (f *AppRepo) filterAppsByName(apps []workloadsv1alpha1.CFApp, name string) []workloadsv1alpha1.CFApp {
@@ -206,28 +207,41 @@ func (f *AppRepo) v1NamespaceToSpaceRecord(namespace *v1.Namespace) SpaceRecord 
 	}
 }
 
-/*
-func (f *AppRepo) CreateOrUpdateAppEnvironmentVariables(client client.Client, envVariables AppEnvironmentVariablesRecord) (AppEnvironmentVariablesRecord, error) {
+func (f *AppRepo) CreateAppEnvironmentVariables(client client.Client, envVariables AppEnvVarsRecord) (AppEnvVarsRecord, error) {
 	secretObj := f.appEnvVarsRecordToSecret(envVariables)
-	err := client.Create(context.Background(), &cfApp)
+	err := client.Create(context.Background(), &secretObj)
 	if err != nil {
-		return AppRecord{}, err
+		return AppEnvVarsRecord{}, err
 	}
-	return f.CFAppToResponseApp(cfApp), err
+	return f.appEnvVarsSecretToRecord(secretObj), nil
 }
 
-func (f *AppRepo) appEnvVarsRecordToSecret(envVariables AppEnvironmentVariablesRecord) corev1.Secret {
+var staticCFApp workloadsv1alpha1.CFApp
+
+func (f *AppRepo) GenerateEnvSecretName(appGUID string) string {
+	return appGUID + "-env"
+}
+func (f *AppRepo) extractAppGUIDFromEnvSecretName(envSecretName string) string {
+	return strings.Trim(envSecretName, "-env")
+}
+
+func (f *AppRepo) appEnvVarsRecordToSecret(envVars AppEnvVarsRecord) corev1.Secret {
 	labels := make(map[string]string, 1)
-	appRequest.Metadata.Labels["apps.cloudfoundry.org/appGuid"] = envVariables.AppGUID
+	labels[CFAppGUIDLabel] = envVars.AppGUID
 	return corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        envVariables.AppGUID + "-env",
-			Namespace:   envVariables.SpaceGUID,
-			Labels:      appRequest.Metadata.Labels,
-			Annotations: appRequest.Metadata.Annotations,
+			Name:      f.GenerateEnvSecretName(envVars.AppGUID),
+			Namespace: envVars.SpaceGUID,
+			Labels:    labels,
 		},
-		StringData: appRequest.EnvironmentVariables,
+		StringData: envVars.EnvironmentVariables,
 	}
 }
 
-*/
+func (f *AppRepo) appEnvVarsSecretToRecord(envVars corev1.Secret) AppEnvVarsRecord {
+	return AppEnvVarsRecord{
+		AppGUID:              f.extractAppGUIDFromEnvSecretName(envVars.Name),
+		SpaceGUID:            envVars.Namespace,
+		EnvironmentVariables: envVars.StringData,
+	}
+}

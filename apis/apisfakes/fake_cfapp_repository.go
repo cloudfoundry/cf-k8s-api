@@ -53,6 +53,20 @@ type FakeCFAppRepository struct {
 		result1 repositories.AppRecord
 		result2 error
 	}
+	CreateAppEnvironmentVariablesStub        func(client.Client, repositories.AppEnvVarsRecord) (repositories.AppEnvVarsRecord, error)
+	createAppEnvironmentVariablesMutex       sync.RWMutex
+	createAppEnvironmentVariablesArgsForCall []struct {
+		arg1 client.Client
+		arg2 repositories.AppEnvVarsRecord
+	}
+	createAppEnvironmentVariablesReturns struct {
+		result1 repositories.AppEnvVarsRecord
+		result2 error
+	}
+	createAppEnvironmentVariablesReturnsOnCall map[int]struct {
+		result1 repositories.AppEnvVarsRecord
+		result2 error
+	}
 	FetchAppStub        func(client.Client, string) (repositories.AppRecord, error)
 	fetchAppMutex       sync.RWMutex
 	fetchAppArgsForCall []struct {
@@ -280,6 +294,71 @@ func (fake *FakeCFAppRepository) CreateAppReturnsOnCall(i int, result1 repositor
 	}{result1, result2}
 }
 
+func (fake *FakeCFAppRepository) CreateAppEnvironmentVariables(arg1 client.Client, arg2 repositories.AppEnvVarsRecord) (repositories.AppEnvVarsRecord, error) {
+	fake.createAppEnvironmentVariablesMutex.Lock()
+	ret, specificReturn := fake.createAppEnvironmentVariablesReturnsOnCall[len(fake.createAppEnvironmentVariablesArgsForCall)]
+	fake.createAppEnvironmentVariablesArgsForCall = append(fake.createAppEnvironmentVariablesArgsForCall, struct {
+		arg1 client.Client
+		arg2 repositories.AppEnvVarsRecord
+	}{arg1, arg2})
+	stub := fake.CreateAppEnvironmentVariablesStub
+	fakeReturns := fake.createAppEnvironmentVariablesReturns
+	fake.recordInvocation("CreateAppEnvironmentVariables", []interface{}{arg1, arg2})
+	fake.createAppEnvironmentVariablesMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeCFAppRepository) CreateAppEnvironmentVariablesCallCount() int {
+	fake.createAppEnvironmentVariablesMutex.RLock()
+	defer fake.createAppEnvironmentVariablesMutex.RUnlock()
+	return len(fake.createAppEnvironmentVariablesArgsForCall)
+}
+
+func (fake *FakeCFAppRepository) CreateAppEnvironmentVariablesCalls(stub func(client.Client, repositories.AppEnvVarsRecord) (repositories.AppEnvVarsRecord, error)) {
+	fake.createAppEnvironmentVariablesMutex.Lock()
+	defer fake.createAppEnvironmentVariablesMutex.Unlock()
+	fake.CreateAppEnvironmentVariablesStub = stub
+}
+
+func (fake *FakeCFAppRepository) CreateAppEnvironmentVariablesArgsForCall(i int) (client.Client, repositories.AppEnvVarsRecord) {
+	fake.createAppEnvironmentVariablesMutex.RLock()
+	defer fake.createAppEnvironmentVariablesMutex.RUnlock()
+	argsForCall := fake.createAppEnvironmentVariablesArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *FakeCFAppRepository) CreateAppEnvironmentVariablesReturns(result1 repositories.AppEnvVarsRecord, result2 error) {
+	fake.createAppEnvironmentVariablesMutex.Lock()
+	defer fake.createAppEnvironmentVariablesMutex.Unlock()
+	fake.CreateAppEnvironmentVariablesStub = nil
+	fake.createAppEnvironmentVariablesReturns = struct {
+		result1 repositories.AppEnvVarsRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeCFAppRepository) CreateAppEnvironmentVariablesReturnsOnCall(i int, result1 repositories.AppEnvVarsRecord, result2 error) {
+	fake.createAppEnvironmentVariablesMutex.Lock()
+	defer fake.createAppEnvironmentVariablesMutex.Unlock()
+	fake.CreateAppEnvironmentVariablesStub = nil
+	if fake.createAppEnvironmentVariablesReturnsOnCall == nil {
+		fake.createAppEnvironmentVariablesReturnsOnCall = make(map[int]struct {
+			result1 repositories.AppEnvVarsRecord
+			result2 error
+		})
+	}
+	fake.createAppEnvironmentVariablesReturnsOnCall[i] = struct {
+		result1 repositories.AppEnvVarsRecord
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *FakeCFAppRepository) FetchApp(arg1 client.Client, arg2 string) (repositories.AppRecord, error) {
 	fake.fetchAppMutex.Lock()
 	ret, specificReturn := fake.fetchAppReturnsOnCall[len(fake.fetchAppArgsForCall)]
@@ -419,6 +498,8 @@ func (fake *FakeCFAppRepository) Invocations() map[string][][]interface{} {
 	defer fake.configureClientMutex.RUnlock()
 	fake.createAppMutex.RLock()
 	defer fake.createAppMutex.RUnlock()
+	fake.createAppEnvironmentVariablesMutex.RLock()
+	defer fake.createAppEnvironmentVariablesMutex.RUnlock()
 	fake.fetchAppMutex.RLock()
 	defer fake.fetchAppMutex.RUnlock()
 	fake.fetchNamespaceMutex.RLock()
