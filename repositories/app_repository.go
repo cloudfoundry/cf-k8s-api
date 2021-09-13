@@ -3,6 +3,7 @@ package repositories
 import (
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	"context"
+	"encoding/json"
 	"errors"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -31,13 +32,14 @@ const (
 )
 
 type AppRecord struct {
-	Name      string
-	GUID      string
-	SpaceGUID string
-	State     DesiredState
-	Lifecycle Lifecycle
-	CreatedAt string
-	UpdatedAt string
+	Name          string
+	GUID          string
+	SpaceGUID     string
+	State         DesiredState
+	Lifecycle     Lifecycle
+	EnvSecretName string
+	CreatedAt     string
+	UpdatedAt     string
 }
 
 type DesiredState string
@@ -58,6 +60,7 @@ type SpaceRecord struct {
 }
 
 type AppEnvVarsRecord struct {
+	Name                 string
 	AppGUID              string
 	SpaceGUID            string
 	EnvironmentVariables map[string]string
@@ -130,8 +133,9 @@ func (f *AppRepo) appRecordToCFApp(appRecord AppRecord) workloadsv1alpha1.CFApp 
 			Namespace: appRecord.SpaceGUID,
 		},
 		Spec: workloadsv1alpha1.CFAppSpec{
-			Name:         appRecord.Name,
-			DesiredState: workloadsv1alpha1.DesiredState(appRecord.State),
+			Name:          appRecord.Name,
+			DesiredState:  workloadsv1alpha1.DesiredState(appRecord.State),
+			EnvSecretName: appRecord.EnvSecretName,
 			Lifecycle: workloadsv1alpha1.Lifecycle{
 				Type: workloadsv1alpha1.LifecycleType(appRecord.Lifecycle.Type),
 				Data: workloadsv1alpha1.LifecycleData{
@@ -240,8 +244,17 @@ func (f *AppRepo) appEnvVarsRecordToSecret(envVars AppEnvVarsRecord) corev1.Secr
 
 func (f *AppRepo) appEnvVarsSecretToRecord(envVars corev1.Secret) AppEnvVarsRecord {
 	return AppEnvVarsRecord{
-		AppGUID:              f.extractAppGUIDFromEnvSecretName(envVars.Name),
-		SpaceGUID:            envVars.Namespace,
-		EnvironmentVariables: envVars.StringData,
+		Name:      envVars.Name,
+		AppGUID:   f.extractAppGUIDFromEnvSecretName(envVars.Name),
+		SpaceGUID: envVars.Namespace,
+		// StringData is a write-only field of a corev1.Secret, the real data lives in .Data and is []byte & base64 encoded
+		EnvironmentVariables: convertMapStringByteToMapStringString(envVars.Data),
 	}
+}
+
+func convertMapStringByteToMapStringString(inputMap map[string][]byte) map[string]string {
+	marshalledData, _ := json.Marshal(inputMap)
+	outputMap := make(map[string]string)
+	json.Unmarshal(marshalledData, &outputMap)
+	return outputMap
 }

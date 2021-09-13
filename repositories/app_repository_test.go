@@ -423,8 +423,9 @@ func testEnvSecretCreate(t *testing.T, when spec.G, it spec.S) {
 			testAppGUID = generateAppGUID()
 			testAppEnvSecretName = generateAppEnvSecretName(testAppGUID)
 			testAppEnvSecret = repositories.AppEnvVarsRecord{
-				AppGUID:   testAppGUID,
-				SpaceGUID: defaultNamespace,
+				AppGUID:              testAppGUID,
+				SpaceGUID:            defaultNamespace,
+				EnvironmentVariables: map[string]string{"foo": "foo", "bar": "bar"},
 			}
 
 			returnedAppEnvVarsRecord, returnedErr = appRepo.CreateAppEnvironmentVariables(client, testAppEnvSecret)
@@ -442,8 +443,14 @@ func testEnvSecretCreate(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns a record matching the input and no error", func() {
-			g.Expect(returnedAppEnvVarsRecord).To(Equal(testAppEnvSecret))
+			g.Expect(returnedAppEnvVarsRecord.AppGUID).To(Equal(testAppEnvSecret.AppGUID))
+			g.Expect(returnedAppEnvVarsRecord.SpaceGUID).To(Equal(testAppEnvSecret.SpaceGUID))
+			g.Expect(len(returnedAppEnvVarsRecord.EnvironmentVariables)).To(Equal(len(testAppEnvSecret.EnvironmentVariables)))
 			g.Expect(returnedErr).To(BeNil())
+		})
+
+		it("returns a record with the created Secret's name", func() {
+			g.Expect(returnedAppEnvVarsRecord.Name).ToNot(BeEmpty())
 		})
 
 		when("examining the created Secret in the k8s api", func() {
@@ -469,6 +476,9 @@ func testEnvSecretCreate(t *testing.T, when spec.G, it spec.S) {
 				labelValue, exists := createdCFAppSecret.Labels[repositories.CFAppGUIDLabel]
 				g.Expect(exists).To(BeTrue(), "label for envSecret AppGUID not found")
 				g.Expect(labelValue).To(Equal(testAppGUID))
+			})
+			it("contains string data that matches the input record length", func() {
+				g.Expect(len(createdCFAppSecret.Data)).To(Equal(len(testAppEnvSecret.EnvironmentVariables)))
 			})
 		})
 

@@ -127,12 +127,35 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	createAppRecord := messages.AppCreateMessageToAppRecord(appCreateMessage)
+	appGUID := uuid.New().String()
+	var appEnvSecretName string
 
-	// Set GUID
-	createAppRecord.GUID = uuid.New().String()
+	if len(appCreateMessage.EnvironmentVariables) > 0 {
+		appEnvSecretRecord := repositories.AppEnvVarsRecord{
+			AppGUID:              appGUID,
+			SpaceGUID:            namespaceGUID,
+			EnvironmentVariables: appCreateMessage.EnvironmentVariables,
+		}
+		responseAppEnvSecretRecord, err := h.AppRepo.CreateAppEnvironmentVariables(client, appEnvSecretRecord)
+		if err != nil {
+			h.Logger.Error(err, "Failed to create app environment vars", "App Name", appName)
+			writeUnknownErrorResponse(w)
+			return
+		}
+		appEnvSecretName = responseAppEnvSecretRecord.Name
+	}
+
+	createAppRecord := messages.AppCreateMessageToAppRecord(appCreateMessage)
+	// Set GUID and EnvSecretName
+	createAppRecord.GUID = appGUID
+	createAppRecord.EnvSecretName = appEnvSecretName
 
 	responseAppRecord, err := h.AppRepo.CreateApp(client, createAppRecord)
+	if err != nil {
+		h.Logger.Error(err, "Failed to create app", "App Name", appName)
+		writeUnknownErrorResponse(w)
+		return
+	}
 	responseBody, err := json.Marshal(presenters.AppRecordToAppResponse(responseAppRecord, h.ServerURL))
 	if err != nil {
 		h.Logger.Error(err, "Failed to render response", "App Name", appName)

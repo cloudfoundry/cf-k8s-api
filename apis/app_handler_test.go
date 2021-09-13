@@ -22,13 +22,6 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-var (
-	FetchAppResponseApp    repositories.AppRecord
-	FetchNamespaceResponse repositories.SpaceRecord
-	FetchAppErr            error
-	FetchNamespaceErr      error
-)
-
 func TestApps(t *testing.T) {
 	spec.Run(t, "AppGetHandler", testAppsGetHandler, spec.Report(report.Terminal{}))
 	spec.Run(t, "AppCreateHandler", testAppsCreateHandler, spec.Report(report.Terminal{}))
@@ -37,8 +30,14 @@ func TestApps(t *testing.T) {
 func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 	Expect := NewWithT(t).Expect
 
+	const (
+		testAppHandlerLoggerName = "TestAppHandler"
+	)
+
 	var (
-		rr *httptest.ResponseRecorder
+		rr                  *httptest.ResponseRecorder
+		FetchAppResponseApp repositories.AppRecord
+		FetchAppErr         error
 	)
 
 	when("the GET /v3/apps/:guid  endpoint returns successfully", func() {
@@ -67,7 +66,7 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 			apiHandler := apis.AppHandler{
 				ServerURL: defaultServerURL,
 				AppRepo:   fakeAppRepo,
-				Logger:    logf.Log.WithName("TestAppHandler"),
+				Logger:    logf.Log.WithName(testAppHandlerLoggerName),
 				K8sConfig: &rest.Config{},
 			}
 
@@ -161,7 +160,7 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 			apiHandler := apis.AppHandler{
 				ServerURL: defaultServerURL,
 				AppRepo:   fakeAppRepo,
-				Logger:    logf.Log.WithName("TestAppHandler"),
+				Logger:    logf.Log.WithName(testAppHandlerLoggerName),
 				K8sConfig: &rest.Config{},
 			}
 
@@ -200,7 +199,7 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 			apiHandler := apis.AppHandler{
 				ServerURL: defaultServerURL,
 				AppRepo:   fakeAppRepo,
-				Logger:    logf.Log.WithName("TestAppHandler"),
+				Logger:    logf.Log.WithName(testAppHandlerLoggerName),
 				K8sConfig: &rest.Config{},
 			}
 
@@ -226,13 +225,42 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 
 }
 
+func initializeCreateAppRequestBody(appName, spaceGUID string, envVars, labels, annotations map[string]string) []byte {
+	marshaledEnvironmentVariables, _ := json.Marshal(envVars)
+	marshaledLabels, _ := json.Marshal(labels)
+	marshaledAnnotations, _ := json.Marshal(annotations)
+
+	return []byte(`{
+						"name": "` + appName + `",
+						"relationships": {
+							"space": {
+								"data": {
+									"guid": "` + spaceGUID + `"
+								}
+							}
+						},
+						"environment_variables": ` + string(marshaledEnvironmentVariables) + `,
+						"metadata": {
+							"labels": ` + string(marshaledLabels) + `,
+							"annotations": ` + string(marshaledAnnotations) + `
+						}
+					}`)
+}
+
 func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 	Expect := NewWithT(t).Expect
-	var rr *httptest.ResponseRecorder
 
 	const (
 		jsonHeader       = "application/json"
 		defaultServerURL = "https://api.example.org"
+		testAppName      = "test-app"
+		testSpaceGUID    = "test-space-guid"
+
+		testAppHandlerLoggerName = "TestAppHandler"
+	)
+
+	var (
+		rr *httptest.ResponseRecorder
 	)
 
 	when("the POST /v3/apps endpoint is invoked and", func() {
@@ -244,18 +272,15 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				req, err := http.NewRequest("POST", "/v3/apps", bytes.NewReader(requestBody))
 				Expect(err).NotTo(HaveOccurred())
 
-				fakeAppRepo := &apisfakes.FakeCFAppRepository{}
-				fakeAppRepo.FetchAppReturns(FetchAppResponseApp, FetchAppErr)
-
 				apiHandler := apis.AppHandler{
 					ServerURL: defaultServerURL,
-					AppRepo:   fakeAppRepo,
-					Logger:    logf.Log.WithName("TestAppHandler"),
+					AppRepo:   &apisfakes.FakeCFAppRepository{},
+					Logger:    logf.Log.WithName(testAppHandlerLoggerName),
 					K8sConfig: &rest.Config{},
 				}
 
-				rr = httptest.NewRecorder()
 				handler := http.HandlerFunc(apiHandler.AppCreateHandler)
+				rr = httptest.NewRecorder()
 				handler.ServeHTTP(rr, req)
 
 			})
@@ -290,13 +315,10 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				req, err := http.NewRequest("POST", "/v3/apps", bytes.NewReader(requestBody))
 				Expect(err).NotTo(HaveOccurred())
 
-				fakeAppRepo := &apisfakes.FakeCFAppRepository{}
-				fakeAppRepo.FetchAppReturns(FetchAppResponseApp, FetchAppErr)
-
 				apiHandler := apis.AppHandler{
 					ServerURL: defaultServerURL,
-					AppRepo:   fakeAppRepo,
-					Logger:    logf.Log.WithName("TestAppHandler"),
+					AppRepo:   &apisfakes.FakeCFAppRepository{},
+					Logger:    logf.Log.WithName(testAppHandlerLoggerName),
 					K8sConfig: &rest.Config{},
 				}
 
@@ -337,13 +359,10 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				req, err := http.NewRequest("POST", "/v3/apps", bytes.NewReader(requestBody))
 				Expect(err).NotTo(HaveOccurred())
 
-				fakeAppRepo := &apisfakes.FakeCFAppRepository{}
-				fakeAppRepo.FetchAppReturns(FetchAppResponseApp, FetchAppErr)
-
 				apiHandler := apis.AppHandler{
 					ServerURL: defaultServerURL,
-					AppRepo:   fakeAppRepo,
-					Logger:    logf.Log.WithName("TestAppHandler"),
+					AppRepo:   &apisfakes.FakeCFAppRepository{},
+					Logger:    logf.Log.WithName(testAppHandlerLoggerName),
 					K8sConfig: &rest.Config{},
 				}
 
@@ -382,13 +401,10 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				req, err := http.NewRequest("POST", "/v3/apps", bytes.NewReader(requestBody))
 				Expect(err).NotTo(HaveOccurred())
 
-				fakeAppRepo := &apisfakes.FakeCFAppRepository{}
-				fakeAppRepo.FetchAppReturns(FetchAppResponseApp, FetchAppErr)
-
 				apiHandler := apis.AppHandler{
 					ServerURL: defaultServerURL,
-					AppRepo:   fakeAppRepo,
-					Logger:    logf.Log.WithName("TestAppHandler"),
+					AppRepo:   &apisfakes.FakeCFAppRepository{},
+					Logger:    logf.Log.WithName(testAppHandlerLoggerName),
 					K8sConfig: &rest.Config{},
 				}
 
@@ -429,13 +445,10 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				req, err := http.NewRequest("POST", "/v3/apps", bytes.NewReader(requestBody))
 				Expect(err).NotTo(HaveOccurred())
 
-				fakeAppRepo := &apisfakes.FakeCFAppRepository{}
-				fakeAppRepo.FetchAppReturns(FetchAppResponseApp, FetchAppErr)
-
 				apiHandler := apis.AppHandler{
 					ServerURL: defaultServerURL,
-					AppRepo:   fakeAppRepo,
-					Logger:    logf.Log.WithName("TestAppHandler"),
+					AppRepo:   &apisfakes.FakeCFAppRepository{},
+					Logger:    logf.Log.WithName(testAppHandlerLoggerName),
 					K8sConfig: &rest.Config{},
 				}
 
@@ -461,35 +474,25 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 
 		when("the space does not exist", func() {
 			it.Before(func() {
-				FetchNamespaceResponse = repositories.SpaceRecord{}
-				FetchNamespaceErr = repositories.PermissionDeniedOrNotFoundError{Err: errors.New("not found")}
-				requestBody := []byte(`{
-										"name": "test-app",
-										"relationships": {
-										  "space": {
-											"data": {
-											  "guid": "0c78dd5d-c723-4f2e-b168-df3c3e1d0806"
-											}
-										  }
-										}
-									  }`)
+				nonExistingSpaceGUID := "0c78dd5d-c723-4f2e-b168-df3c3e1d0806"
+				requestBody := initializeCreateAppRequestBody(testAppName, nonExistingSpaceGUID, nil, nil, nil)
 
 				req, err := http.NewRequest("POST", "/v3/apps", bytes.NewReader(requestBody))
 				Expect(err).NotTo(HaveOccurred())
 
 				fakeAppRepo := &apisfakes.FakeCFAppRepository{}
-				fakeAppRepo.FetchNamespaceReturns(FetchNamespaceResponse, FetchNamespaceErr)
+				fetchNamespaceResponse := repositories.SpaceRecord{}
+				fetchNamespaceErr := repositories.PermissionDeniedOrNotFoundError{Err: errors.New("not found")}
+				fakeAppRepo.FetchNamespaceReturns(fetchNamespaceResponse, fetchNamespaceErr)
 
 				rr = httptest.NewRecorder()
 				apiHandler := apis.AppHandler{
 					ServerURL: defaultServerURL,
 					AppRepo:   fakeAppRepo,
-					Logger:    logf.Log.WithName("TestAppHandler"),
+					Logger:    logf.Log.WithName(testAppHandlerLoggerName),
 					K8sConfig: &rest.Config{},
 				}
-
 				handler := http.HandlerFunc(apiHandler.AppCreateHandler)
-
 				handler.ServeHTTP(rr, req)
 			})
 
@@ -510,36 +513,22 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 
 		when("the app already exists", func() {
 			it.Before(func() {
-				FetchNamespaceResponse = repositories.SpaceRecord{}
-				FetchNamespaceErr = nil
-				requestBody := []byte(`{
-										"name": "test-app",
-										"relationships": {
-										  "space": {
-											"data": {
-											  "guid": "0c78dd5d-c723-4f2e-b168-df3c3e1d0806"
-											}
-										  }
-										}
-									  }`)
+				requestBody := initializeCreateAppRequestBody(testAppName, testSpaceGUID, nil, nil, nil)
 
 				req, err := http.NewRequest("POST", "/v3/apps", bytes.NewReader(requestBody))
 				Expect(err).NotTo(HaveOccurred())
 
 				fakeAppRepo := &apisfakes.FakeCFAppRepository{}
-				fakeAppRepo.FetchNamespaceReturns(FetchNamespaceResponse, FetchNamespaceErr)
 				fakeAppRepo.AppExistsReturns(true, nil)
 
 				rr = httptest.NewRecorder()
 				apiHandler := apis.AppHandler{
 					ServerURL: defaultServerURL,
 					AppRepo:   fakeAppRepo,
-					Logger:    logf.Log.WithName("TestAppHandler"),
+					Logger:    logf.Log.WithName(testAppHandlerLoggerName),
 					K8sConfig: &rest.Config{},
 				}
-
 				handler := http.HandlerFunc(apiHandler.AppCreateHandler)
-
 				handler.ServeHTTP(rr, req)
 			})
 
@@ -562,130 +551,190 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			var fakeAppRepo *apisfakes.FakeCFAppRepository
 
 			it.Before(func() {
-				FetchNamespaceResponse = repositories.SpaceRecord{}
-				FetchNamespaceErr = nil
-				requestBody := []byte(`{
-										"name": "test-app",
-										"relationships": {
-										  "space": {
-											"data": {
-											  "guid": "test-space-guid"
-											}
-										  }
-										}
-									  }`)
-
-				CreateAppResponse := repositories.AppRecord{
-					GUID:      "test-app-guid",
-					Name:      "test-app",
-					SpaceGUID: "test-space-guid",
-					State:     repositories.DesiredState("STOPPED"),
-					Lifecycle: repositories.Lifecycle{
-						Data: repositories.LifecycleData{
-							Buildpacks: []string{},
-							Stack:      "",
-						},
-					},
-				}
-
-				req, err := http.NewRequest("POST", "/v3/apps", bytes.NewReader(requestBody))
-				Expect(err).NotTo(HaveOccurred())
-
 				fakeAppRepo = &apisfakes.FakeCFAppRepository{}
-				fakeAppRepo.FetchNamespaceReturns(FetchNamespaceResponse, FetchNamespaceErr)
 				fakeAppRepo.AppExistsReturns(false, nil)
-				fakeAppRepo.CreateAppReturns(CreateAppResponse, nil)
-
-				rr = httptest.NewRecorder()
-				apiHandler := apis.AppHandler{
-					ServerURL: defaultServerURL,
-					AppRepo:   fakeAppRepo,
-					Logger:    logf.Log.WithName("TestAppHandler"),
-					K8sConfig: &rest.Config{},
-				}
-
-				handler := http.HandlerFunc(apiHandler.AppCreateHandler)
-
-				handler.ServeHTTP(rr, req)
 			})
 
-			it("should invoke repo CreateApp with a random GUID", func() {
-				Expect(fakeAppRepo.CreateAppCallCount()).To(Equal(1), "Repo CreateApp count was not invoked 1 time")
-				_, createAppRecord := fakeAppRepo.CreateAppArgsForCall(0)
-				Expect(createAppRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"), "CreateApp record GUID was not a 36 character guid")
-			})
+			when("a plain POST test app is sent without env vars or metadata", func() {
 
-			// TODO: Add tests for environment variables
+				const testAppGUID = "test-app-guid"
 
-			// TODO: Add tests for metadata and labels?
+				it.Before(func() {
+					requestBody := initializeCreateAppRequestBody(testAppName, testSpaceGUID, nil, nil, nil)
 
-			it("return status 200OK", func() {
-				httpStatus := rr.Code
-				Expect(httpStatus).Should(Equal(http.StatusOK), "Matching HTTP response code:")
-			})
+					CreateAppResponse := repositories.AppRecord{
+						GUID:      testAppGUID,
+						Name:      testAppName,
+						SpaceGUID: testSpaceGUID,
+						State:     repositories.DesiredState("STOPPED"),
+						Lifecycle: repositories.Lifecycle{
+							Data: repositories.LifecycleData{
+								Buildpacks: []string{},
+								Stack:      "",
+							},
+						},
+					}
+					fakeAppRepo.CreateAppReturns(CreateAppResponse, nil)
 
-			it("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
-			})
+					req, err := http.NewRequest("POST", "/v3/apps", bytes.NewReader(requestBody))
+					Expect(err).NotTo(HaveOccurred())
 
-			it("returns the created app in the response", func() {
-				expectedBody, err := json.Marshal(presenters.AppResponse{
-					Name:  "test-app",
-					GUID:  "test-app-guid",
-					State: "STOPPED",
-					Relationships: presenters.Relationships{
-						"space": presenters.Relationship{
-							GUID: "test-space-guid",
-						},
-					},
-					Lifecycle: presenters.Lifecycle{Data: presenters.LifecycleData{
-						Buildpacks: []string{},
-						Stack:      "",
-					}},
-					Metadata: presenters.Metadata{
-						Labels:      nil,
-						Annotations: nil,
-					},
-					Links: presenters.AppLinks{
-						Self: presenters.Link{
-							HREF: "https://api.example.org/v3/apps/test-app-guid",
-						},
-						Space: presenters.Link{
-							HREF: "https://api.example.org/v3/spaces/test-space-guid",
-						},
-						Processes: presenters.Link{
-							HREF: "https://api.example.org/v3/apps/test-app-guid/processes",
-						},
-						Packages: presenters.Link{
-							HREF: "https://api.example.org/v3/apps/test-app-guid/packages",
-						},
-						EnvironmentVariables: presenters.Link{
-							HREF: "https://api.example.org/v3/apps/test-app-guid/environment_variables",
-						},
-						CurrentDroplet: presenters.Link{
-							HREF: "https://api.example.org/v3/apps/test-app-guid/droplets/current",
-						},
-						Droplets: presenters.Link{
-							HREF: "https://api.example.org/v3/apps/test-app-guid/droplets",
-						},
-						Tasks: presenters.Link{},
-						StartAction: presenters.Link{
-							HREF:   "https://api.example.org/v3/apps/test-app-guid/actions/start",
-							Method: "POST",
-						},
-						StopAction: presenters.Link{
-							HREF:   "https://api.example.org/v3/apps/test-app-guid/actions/stop",
-							Method: "POST",
-						},
-						Revisions:         presenters.Link{},
-						DeployedRevisions: presenters.Link{},
-						Features:          presenters.Link{},
-					},
+					rr = httptest.NewRecorder()
+					apiHandler := apis.AppHandler{
+						ServerURL: defaultServerURL,
+						AppRepo:   fakeAppRepo,
+						Logger:    logf.Log.WithName(testAppHandlerLoggerName),
+						K8sConfig: &rest.Config{},
+					}
+					handler := http.HandlerFunc(apiHandler.AppCreateHandler)
+					handler.ServeHTTP(rr, req)
 				})
 
-				Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
-				Expect(err).NotTo(HaveOccurred())
+				it("should invoke repo CreateApp with a random GUID", func() {
+					Expect(fakeAppRepo.CreateAppCallCount()).To(Equal(1), "Repo CreateApp count was not invoked 1 time")
+					_, createAppRecord := fakeAppRepo.CreateAppArgsForCall(0)
+					Expect(createAppRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"), "CreateApp record GUID was not a 36 character guid")
+				})
+
+				it("should not invoke repo CreateAppEnvironmentVariables when no environment variables are provided", func() {
+					Expect(fakeAppRepo.CreateAppEnvironmentVariablesCallCount()).To(BeZero(), "Repo CreateAppEnvironmentVariables was invoked even though no environment vars were provided")
+				})
+
+				it("return status 200OK", func() {
+					httpStatus := rr.Code
+					Expect(httpStatus).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+
+				it("returns Content-Type as JSON in header", func() {
+					contentTypeHeader := rr.Header().Get("Content-Type")
+					Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+				})
+
+				it("returns the \"created app\"(the mock response record) in the response", func() {
+					expectedBody, err := json.Marshal(presenters.AppResponse{
+						Name:  testAppName,
+						GUID:  testAppGUID,
+						State: "STOPPED",
+						Relationships: presenters.Relationships{
+							"space": presenters.Relationship{
+								GUID: testSpaceGUID,
+							},
+						},
+						Lifecycle: presenters.Lifecycle{Data: presenters.LifecycleData{
+							Buildpacks: []string{},
+							Stack:      "",
+						}},
+						Metadata: presenters.Metadata{
+							Labels:      nil,
+							Annotations: nil,
+						},
+						Links: presenters.AppLinks{
+							Self: presenters.Link{
+								HREF: "https://api.example.org/v3/apps/" + testAppGUID,
+							},
+							Space: presenters.Link{
+								HREF: "https://api.example.org/v3/spaces/" + testSpaceGUID,
+							},
+							Processes: presenters.Link{
+								HREF: "https://api.example.org/v3/apps/" + testAppGUID + "/processes",
+							},
+							Packages: presenters.Link{
+								HREF: "https://api.example.org/v3/apps/" + testAppGUID + "/packages",
+							},
+							EnvironmentVariables: presenters.Link{
+								HREF: "https://api.example.org/v3/apps/" + testAppGUID + "/environment_variables",
+							},
+							CurrentDroplet: presenters.Link{
+								HREF: "https://api.example.org/v3/apps/" + testAppGUID + "/droplets/current",
+							},
+							Droplets: presenters.Link{
+								HREF: "https://api.example.org/v3/apps/" + testAppGUID + "/droplets",
+							},
+							Tasks: presenters.Link{},
+							StartAction: presenters.Link{
+								HREF:   "https://api.example.org/v3/apps/" + testAppGUID + "/actions/start",
+								Method: "POST",
+							},
+							StopAction: presenters.Link{
+								HREF:   "https://api.example.org/v3/apps/" + testAppGUID + "/actions/stop",
+								Method: "POST",
+							},
+							Revisions:         presenters.Link{},
+							DeployedRevisions: presenters.Link{},
+							Features:          presenters.Link{},
+						},
+					})
+
+					Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
+					Expect(err).NotTo(HaveOccurred())
+				})
+			})
+
+			when("a POST test app request is sent with env vars", func() {
+				var (
+					testEnvironmentVariables map[string]string
+					req                      *http.Request
+				)
+
+				it.Before(func() {
+					testEnvironmentVariables = map[string]string{"foo": "foo", "bar": "bar"}
+					requestBody := initializeCreateAppRequestBody(testAppName, testSpaceGUID, testEnvironmentVariables, nil, nil)
+					var err error
+					req, err = http.NewRequest("POST", "/v3/apps", bytes.NewReader(requestBody))
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				when("the env var repository is working and will not return an error", func() {
+					const createEnvVarsResponseName = "testAppGUID-env"
+
+					it.Before(func() {
+						CreateEnvVarsResponse := repositories.AppEnvVarsRecord{
+							Name: createEnvVarsResponseName,
+						}
+						fakeAppRepo.CreateAppEnvironmentVariablesReturns(CreateEnvVarsResponse, nil)
+
+						rr = httptest.NewRecorder()
+						apiHandler := apis.AppHandler{
+							ServerURL: defaultServerURL,
+							AppRepo:   fakeAppRepo,
+							Logger:    logf.Log.WithName(testAppHandlerLoggerName),
+							K8sConfig: &rest.Config{},
+						}
+						handler := http.HandlerFunc(apiHandler.AppCreateHandler)
+						handler.ServeHTTP(rr, req)
+					})
+
+					it("should call Repo CreateAppEnvironmentVariables with the space and environment vars", func() {
+						Expect(fakeAppRepo.CreateAppEnvironmentVariablesCallCount()).To(Equal(1), "Repo CreateAppEnvironmentVariables count was not invoked 1 time")
+						_, createAppEnvVarsRecord := fakeAppRepo.CreateAppEnvironmentVariablesArgsForCall(0)
+						Expect(createAppEnvVarsRecord.EnvironmentVariables).To(Equal(testEnvironmentVariables))
+						Expect(createAppEnvVarsRecord.SpaceGUID).To(Equal(testSpaceGUID))
+					})
+
+					it("should call Repo CreateApp and provide the name of the created env Secret", func() {
+						Expect(fakeAppRepo.CreateAppCallCount()).To(Equal(1), "Repo CreateApp count was not invoked 1 time")
+						_, createAppRecord := fakeAppRepo.CreateAppArgsForCall(0)
+						Expect(createAppRecord.EnvSecretName).To(Equal(createEnvVarsResponseName))
+					})
+				})
+
+				when("there will be a repository error with creating the env vars", func() {
+					it.Before(func() {
+						fakeAppRepo.CreateAppEnvironmentVariablesReturns(repositories.AppEnvVarsRecord{}, errors.New("intentional error"))
+						rr = httptest.NewRecorder()
+						apiHandler := apis.AppHandler{
+							ServerURL: defaultServerURL,
+							AppRepo:   fakeAppRepo,
+							Logger:    logf.Log.WithName(testAppHandlerLoggerName),
+							K8sConfig: &rest.Config{},
+						}
+						handler := http.HandlerFunc(apiHandler.AppCreateHandler)
+						handler.ServeHTTP(rr, req)
+					})
+					it("should return an error", func() {
+						Expect(rr.Code).To(Equal(http.StatusInternalServerError))
+					})
+				})
 			})
 
 		})
