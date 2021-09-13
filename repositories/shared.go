@@ -5,6 +5,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+//go:generate controller-gen rbac:roleName=cf-admin-clusterrole paths=./... output:rbac:artifacts:config=../config/rbac
+
 type NotFoundError struct {
 	Err error
 }
