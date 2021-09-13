@@ -3,10 +3,11 @@ package repositories_test
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
-	"k8s.io/apimachinery/pkg/types"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
+	"k8s.io/apimachinery/pkg/types"
 
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -30,16 +31,26 @@ func testAppGet(t *testing.T, when spec.G, it spec.S) {
 		namespace = "default"
 	)
 
+	var testCtx context.Context
+
+	it.Before(func() {
+		testCtx = context.Background()
+	})
+
 	when("multiple Apps exist", func() {
 		var (
-			cfApp1 *workloadsv1alpha1.CFApp
-			cfApp2 *workloadsv1alpha1.CFApp
+			app1GUID string
+			app2GUID string
+			cfApp1   *workloadsv1alpha1.CFApp
+			cfApp2   *workloadsv1alpha1.CFApp
 		)
 		it.Before(func() {
-			ctx := context.Background()
+			beforeCtx := context.Background()
+			app1GUID = generateAppGUID()
+			app2GUID = generateAppGUID()
 			cfApp1 = &workloadsv1alpha1.CFApp{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "some-other-app",
+					Name:      app1GUID,
 					Namespace: namespace,
 				},
 				Spec: workloadsv1alpha1.CFAppSpec{
@@ -54,11 +65,11 @@ func testAppGet(t *testing.T, when spec.G, it spec.S) {
 					},
 				},
 			}
-			g.Expect(k8sClient.Create(ctx, cfApp1)).To(Succeed())
+			g.Expect(k8sClient.Create(beforeCtx, cfApp1)).To(Succeed())
 
 			cfApp2 = &workloadsv1alpha1.CFApp{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      cfAppGUID,
+					Name:      app2GUID,
 					Namespace: namespace,
 				},
 				Spec: workloadsv1alpha1.CFAppSpec{
@@ -73,13 +84,13 @@ func testAppGet(t *testing.T, when spec.G, it spec.S) {
 					},
 				},
 			}
-			g.Expect(k8sClient.Create(ctx, cfApp2)).To(Succeed())
+			g.Expect(k8sClient.Create(beforeCtx, cfApp2)).To(Succeed())
 		})
 
 		it.After(func() {
-			ctx := context.Background()
-			g.Expect(k8sClient.Delete(ctx, cfApp1)).To(Succeed())
-			g.Expect(k8sClient.Delete(ctx, cfApp2)).To(Succeed())
+			afterCtx := context.Background()
+			g.Expect(k8sClient.Delete(afterCtx, cfApp1)).To(Succeed())
+			g.Expect(k8sClient.Delete(afterCtx, cfApp2)).To(Succeed())
 		})
 
 		it("can fetch the AppRecord CR we're looking for", func() {
@@ -87,9 +98,9 @@ func testAppGet(t *testing.T, when spec.G, it spec.S) {
 			client, err := appRepo.ConfigureClient(k8sConfig)
 			g.Expect(err).ToNot(HaveOccurred())
 
-			app, err := appRepo.FetchApp(client, cfAppGUID)
+			app, err := appRepo.FetchApp(client, testCtx, app2GUID)
 			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(app.GUID).To(Equal(cfAppGUID))
+			g.Expect(app.GUID).To(Equal(app2GUID))
 			g.Expect(app.Name).To(Equal("test-app2"))
 			g.Expect(app.SpaceGUID).To(Equal(namespace))
 			g.Expect(app.State).To(Equal(repositories.DesiredState("STOPPED")))
@@ -105,18 +116,22 @@ func testAppGet(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("duplicate Apps exist across namespaces with the same name", func() {
+		const otherNamespaceName = "other-namespace"
+
 		var (
-			cfApp1 *workloadsv1alpha1.CFApp
-			cfApp2 *workloadsv1alpha1.CFApp
+			testAppGUID string
+			cfApp1      *workloadsv1alpha1.CFApp
+			cfApp2      *workloadsv1alpha1.CFApp
 		)
 
 		it.Before(func() {
-			ctx := context.Background()
-			g.Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "other-namespace"}})).To(Succeed())
+			beforeCtx := context.Background()
+			testAppGUID = generateAppGUID()
+			g.Expect(k8sClient.Create(beforeCtx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: otherNamespaceName}})).To(Succeed())
 
 			cfApp1 = &workloadsv1alpha1.CFApp{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      cfAppGUID,
+					Name:      testAppGUID,
 					Namespace: namespace,
 				},
 				Spec: workloadsv1alpha1.CFAppSpec{
@@ -131,12 +146,12 @@ func testAppGet(t *testing.T, when spec.G, it spec.S) {
 					},
 				},
 			}
-			g.Expect(k8sClient.Create(ctx, cfApp1)).To(Succeed())
+			g.Expect(k8sClient.Create(beforeCtx, cfApp1)).To(Succeed())
 
 			cfApp2 = &workloadsv1alpha1.CFApp{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      cfAppGUID,
-					Namespace: "other-namespace",
+					Name:      testAppGUID,
+					Namespace: otherNamespaceName,
 				},
 				Spec: workloadsv1alpha1.CFAppSpec{
 					Name:         "test-app2",
@@ -150,13 +165,13 @@ func testAppGet(t *testing.T, when spec.G, it spec.S) {
 					},
 				},
 			}
-			g.Expect(k8sClient.Create(ctx, cfApp2)).To(Succeed())
+			g.Expect(k8sClient.Create(beforeCtx, cfApp2)).To(Succeed())
 		})
 
 		it.After(func() {
-			ctx := context.Background()
-			g.Expect(k8sClient.Delete(ctx, cfApp1)).To(Succeed())
-			g.Expect(k8sClient.Delete(ctx, cfApp2)).To(Succeed())
+			afterCtx := context.Background()
+			g.Expect(k8sClient.Delete(afterCtx, cfApp1)).To(Succeed())
+			g.Expect(k8sClient.Delete(afterCtx, cfApp2)).To(Succeed())
 		})
 
 		it("returns an error", func() {
@@ -164,7 +179,7 @@ func testAppGet(t *testing.T, when spec.G, it spec.S) {
 			client, err := appRepo.ConfigureClient(k8sConfig)
 			g.Expect(err).ToNot(HaveOccurred())
 
-			_, err = appRepo.FetchApp(client, cfAppGUID)
+			_, err = appRepo.FetchApp(client, testCtx, testAppGUID)
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err).To(MatchError("duplicate apps exist"))
 		})
@@ -176,7 +191,7 @@ func testAppGet(t *testing.T, when spec.G, it spec.S) {
 			client, err := appRepo.ConfigureClient(k8sConfig)
 			g.Expect(err).ToNot(HaveOccurred())
 
-			_, err = appRepo.FetchApp(client, "i don't exist")
+			_, err = appRepo.FetchApp(client, testCtx, "i don't exist")
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err).To(MatchError("not found"))
 		})
@@ -228,14 +243,14 @@ func generateAppGUID() string {
 	return newUUID.String()
 }
 
-func cleanupApp(k8sClient client.Client, appGUID, appNamespace string) error {
+func cleanupApp(k8sClient client.Client, ctx context.Context, appGUID, appNamespace string) error {
 	app := workloadsv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      appGUID,
 			Namespace: appNamespace,
 		},
 	}
-	return k8sClient.Delete(context.Background(), &app)
+	return k8sClient.Delete(ctx, &app)
 }
 
 func testAppCreate(t *testing.T, when spec.G, it spec.S) {
@@ -245,16 +260,18 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 		defaultNamespace = "default"
 	)
 
-	when("creating an App record", func() {
+	when("creating an App record and", func() {
 		const (
 			testAppName = "test-app-name"
 		)
 		var (
 			testAppGUID    string
 			emptyAppRecord = repositories.AppRecord{}
+			testCtx        context.Context
 		)
 		it.Before(func() {
 			testAppGUID = generateAppGUID()
+			testCtx = context.Background()
 		})
 
 		when("space does not exist", func() {
@@ -263,7 +280,7 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 				appRepo := repositories.AppRepo{}
 				client, err := appRepo.ConfigureClient(k8sConfig)
 
-				_, err = appRepo.FetchNamespace(client, "some-guid")
+				_, err = appRepo.FetchNamespace(client, testCtx, "some-guid")
 				g.Expect(err).To(HaveOccurred())
 				g.Expect(err).To(MatchError("Invalid space. Ensure that the space exists and you have access to it."))
 			})
@@ -284,13 +301,13 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns false when checking if the App Exists", func() {
-				exists, err := appRepo.AppExists(client, testAppGUID, defaultNamespace)
+				exists, err := appRepo.AppExists(client, testCtx, testAppGUID, defaultNamespace)
 				g.Expect(exists).To(BeFalse())
 				g.Expect(err).NotTo(HaveOccurred())
 			})
 
-			it("should create a new app successfully", func() {
-				createdAppRecord, err := appRepo.CreateApp(client, appRecord)
+			it("should create a new app CR successfully", func() {
+				createdAppRecord, err := appRepo.CreateApp(client, testCtx, appRecord)
 				g.Expect(err).To(BeNil())
 				g.Expect(createdAppRecord).NotTo(BeNil())
 
@@ -303,7 +320,7 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 					}
 					return createdCFApp.Name
 				}, 10*time.Second, 250*time.Millisecond).Should(Equal(testAppGUID))
-				g.Expect(cleanupApp(k8sClient, testAppGUID, defaultNamespace)).To(Succeed())
+				g.Expect(cleanupApp(k8sClient, testCtx, testAppGUID, defaultNamespace)).To(Succeed())
 			})
 
 			when("an app is created with the repository", func() {
@@ -312,14 +329,16 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 					createdAppRecord   repositories.AppRecord
 				)
 				it.Before(func() {
+					beforeCtx := context.Background()
 					beforeCreationTime = time.Now().UTC().AddDate(0, 0, -1)
 
 					var err error
-					createdAppRecord, err = appRepo.CreateApp(client, appRecord)
+					createdAppRecord, err = appRepo.CreateApp(client, beforeCtx, appRecord)
 					g.Expect(err).To(BeNil())
 				})
 				it.After(func() {
-					g.Expect(cleanupApp(k8sClient, testAppGUID, defaultNamespace)).To(Succeed())
+					afterCtx := context.Background()
+					g.Expect(cleanupApp(k8sClient, afterCtx, testAppGUID, defaultNamespace)).To(Succeed())
 				})
 
 				it("should return a non-empty AppRecord", func() {
@@ -354,36 +373,36 @@ func testAppCreate(t *testing.T, when spec.G, it spec.S) {
 				appCR   workloadsv1alpha1.CFApp
 				appRepo repositories.AppRepo
 				client  client.Client
-				ctx     context.Context
 			)
 
 			it.Before(func() {
-				ctx = context.Background()
+				beforeCtx := context.Background()
 				appCR = intializeAppCR(testAppName, testAppGUID, defaultNamespace)
 
-				g.Expect(k8sClient.Create(ctx, &appCR)).To(Succeed())
+				g.Expect(k8sClient.Create(beforeCtx, &appCR)).To(Succeed())
 
 				appRepo = repositories.AppRepo{}
 				client, _ = appRepo.ConfigureClient(k8sConfig)
 			})
 
 			it.After(func() {
-				g.Expect(k8sClient.Delete(ctx, &appCR)).To(Succeed())
+				afterCtx := context.Background()
+				g.Expect(k8sClient.Delete(afterCtx, &appCR)).To(Succeed())
 			})
 
 			it("should eventually return true when AppExists is called", func() {
 				g.Eventually(func() bool {
-					exists, _ := appRepo.AppExists(client, testAppGUID, defaultNamespace)
+					exists, _ := appRepo.AppExists(client, testCtx, testAppGUID, defaultNamespace)
 					return exists
 				}, 10*time.Second, 250*time.Millisecond).Should(BeTrue())
-				exists, err := appRepo.AppExists(client, testAppGUID, defaultNamespace)
+				exists, err := appRepo.AppExists(client, testCtx, testAppGUID, defaultNamespace)
 				g.Expect(exists).To(BeTrue())
 				g.Expect(err).NotTo(HaveOccurred())
 			})
 
 			it("should error when trying to create the same app again", func() {
 				appRecord := intializeAppRecord(testAppName, testAppGUID, defaultNamespace)
-				createdAppRecord, err := appRepo.CreateApp(client, appRecord)
+				createdAppRecord, err := appRepo.CreateApp(client, testCtx, appRecord)
 				g.Expect(err).NotTo(BeNil())
 				g.Expect(createdAppRecord).To(Equal(emptyAppRecord))
 			})
@@ -407,7 +426,6 @@ func testEnvSecretCreate(t *testing.T, when spec.G, it spec.S) {
 			testAppName = "test-app-name"
 		)
 		var (
-			ctx                      context.Context
 			appRepo                  repositories.AppRepo
 			client                   client.Client
 			testAppGUID              string
@@ -417,7 +435,7 @@ func testEnvSecretCreate(t *testing.T, when spec.G, it spec.S) {
 			returnedErr              error
 		)
 		it.Before(func() {
-			ctx = context.Background()
+			beforeCtx := context.Background()
 			appRepo = repositories.AppRepo{}
 			client, _ = appRepo.ConfigureClient(k8sConfig)
 			testAppGUID = generateAppGUID()
@@ -428,18 +446,19 @@ func testEnvSecretCreate(t *testing.T, when spec.G, it spec.S) {
 				EnvironmentVariables: map[string]string{"foo": "foo", "bar": "bar"},
 			}
 
-			returnedAppEnvVarsRecord, returnedErr = appRepo.CreateAppEnvironmentVariables(client, testAppEnvSecret)
+			returnedAppEnvVarsRecord, returnedErr = appRepo.CreateAppEnvironmentVariables(client, beforeCtx, testAppEnvSecret)
 
 		})
 
 		it.After(func() {
+			afterCtx := context.Background()
 			lookupSecretK8sResource := corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      testAppEnvSecretName,
 					Namespace: defaultNamespace,
 				},
 			}
-			g.Expect(client.Delete(ctx, &lookupSecretK8sResource)).To(Succeed(), "Could not clean up the created App Env Secret")
+			g.Expect(client.Delete(afterCtx, &lookupSecretK8sResource)).To(Succeed(), "Could not clean up the created App Env Secret")
 		})
 
 		it("returns a record matching the input and no error", func() {
@@ -454,12 +473,15 @@ func testEnvSecretCreate(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("examining the created Secret in the k8s api", func() {
-			var createdCFAppSecret corev1.Secret
+			var (
+				createdCFAppSecret corev1.Secret
+			)
 			it.Before(func() {
+				beforeCtx := context.Background()
 				cfAppSecretLookupKey := types.NamespacedName{Name: testAppEnvSecretName, Namespace: defaultNamespace}
 				createdCFAppSecret = corev1.Secret{}
 				g.Eventually(func() bool {
-					err := client.Get(ctx, cfAppSecretLookupKey, &createdCFAppSecret)
+					err := client.Get(beforeCtx, cfAppSecretLookupKey, &createdCFAppSecret)
 					if err != nil {
 						return false
 					}
@@ -483,10 +505,10 @@ func testEnvSecretCreate(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns an error if the secret already exists", func() {
+			testCtx := context.Background()
 			testAppEnvSecret.EnvironmentVariables = map[string]string{"foo": "foo", "bar": "bar"}
 
-			returnedUpdatedAppEnvVarsRecord, returnedUpdatedErr := appRepo.CreateAppEnvironmentVariables(client, testAppEnvSecret)
-			fmt.Printf("%+v\n%v\n", returnedUpdatedAppEnvVarsRecord, returnedUpdatedErr)
+			returnedUpdatedAppEnvVarsRecord, returnedUpdatedErr := appRepo.CreateAppEnvironmentVariables(client, testCtx, testAppEnvSecret)
 			g.Expect(returnedUpdatedErr).ToNot(BeNil())
 			g.Expect(returnedUpdatedAppEnvVarsRecord).To(Equal(repositories.AppEnvVarsRecord{}))
 		})

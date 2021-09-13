@@ -547,7 +547,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 
-		when("the namespace exists and app does not exist", func() {
+		when("the namespace exists and app does not exist and", func() {
 			var fakeAppRepo *apisfakes.FakeCFAppRepository
 
 			it.Before(func() {
@@ -555,7 +555,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				fakeAppRepo.AppExistsReturns(false, nil)
 			})
 
-			when("a plain POST test app is sent without env vars or metadata", func() {
+			when("a plain POST test app request is sent without env vars or metadata", func() {
 
 				const testAppGUID = "test-app-guid"
 
@@ -592,7 +592,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 
 				it("should invoke repo CreateApp with a random GUID", func() {
 					Expect(fakeAppRepo.CreateAppCallCount()).To(Equal(1), "Repo CreateApp count was not invoked 1 time")
-					_, createAppRecord := fakeAppRepo.CreateAppArgsForCall(0)
+					_, _, createAppRecord := fakeAppRepo.CreateAppArgsForCall(0)
 					Expect(createAppRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"), "CreateApp record GUID was not a 36 character guid")
 				})
 
@@ -670,7 +670,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				})
 			})
 
-			when("a POST test app request is sent with env vars", func() {
+			when("a POST test app request is sent with env vars and", func() {
 				var (
 					testEnvironmentVariables map[string]string
 					req                      *http.Request
@@ -706,14 +706,14 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 
 					it("should call Repo CreateAppEnvironmentVariables with the space and environment vars", func() {
 						Expect(fakeAppRepo.CreateAppEnvironmentVariablesCallCount()).To(Equal(1), "Repo CreateAppEnvironmentVariables count was not invoked 1 time")
-						_, createAppEnvVarsRecord := fakeAppRepo.CreateAppEnvironmentVariablesArgsForCall(0)
+						_, _, createAppEnvVarsRecord := fakeAppRepo.CreateAppEnvironmentVariablesArgsForCall(0)
 						Expect(createAppEnvVarsRecord.EnvironmentVariables).To(Equal(testEnvironmentVariables))
 						Expect(createAppEnvVarsRecord.SpaceGUID).To(Equal(testSpaceGUID))
 					})
 
 					it("should call Repo CreateApp and provide the name of the created env Secret", func() {
 						Expect(fakeAppRepo.CreateAppCallCount()).To(Equal(1), "Repo CreateApp count was not invoked 1 time")
-						_, createAppRecord := fakeAppRepo.CreateAppArgsForCall(0)
+						_, _, createAppRecord := fakeAppRepo.CreateAppArgsForCall(0)
 						Expect(createAppRecord.EnvSecretName).To(Equal(createEnvVarsResponseName))
 					})
 				})
@@ -734,6 +734,62 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 					it("should return an error", func() {
 						Expect(rr.Code).To(Equal(http.StatusInternalServerError))
 					})
+				})
+			})
+
+			when("a POST test app request is sent with metadata labels", func() {
+				var (
+					testLabels map[string]string
+				)
+
+				it.Before(func() {
+					testLabels = map[string]string{"foo": "foo", "bar": "bar"}
+					requestBody := initializeCreateAppRequestBody(testAppName, testSpaceGUID, nil, testLabels, nil)
+					req, err := http.NewRequest("POST", "/v3/apps", bytes.NewReader(requestBody))
+					Expect(err).NotTo(HaveOccurred())
+
+					rr = httptest.NewRecorder()
+					apiHandler := apis.AppHandler{
+						ServerURL: defaultServerURL,
+						AppRepo:   fakeAppRepo,
+						Logger:    logf.Log.WithName(testAppHandlerLoggerName),
+						K8sConfig: &rest.Config{},
+					}
+					handler := http.HandlerFunc(apiHandler.AppCreateHandler)
+					handler.ServeHTTP(rr, req)
+				})
+				it("should pass along the labels to CreateApp", func() {
+					Expect(fakeAppRepo.CreateAppCallCount()).To(Equal(1), "Repo CreateApp count was not invoked 1 time")
+					_, _, createAppRecord := fakeAppRepo.CreateAppArgsForCall(0)
+					Expect(createAppRecord.Labels).To(Equal(testLabels))
+				})
+			})
+
+			when("a POST test app request is sent with metadata annotations", func() {
+				var (
+					testAnnotations map[string]string
+				)
+
+				it.Before(func() {
+					testAnnotations = map[string]string{"foo": "foo", "bar": "bar"}
+					requestBody := initializeCreateAppRequestBody(testAppName, testSpaceGUID, nil, nil, testAnnotations)
+					req, err := http.NewRequest("POST", "/v3/apps", bytes.NewReader(requestBody))
+					Expect(err).NotTo(HaveOccurred())
+
+					rr = httptest.NewRecorder()
+					apiHandler := apis.AppHandler{
+						ServerURL: defaultServerURL,
+						AppRepo:   fakeAppRepo,
+						Logger:    logf.Log.WithName(testAppHandlerLoggerName),
+						K8sConfig: &rest.Config{},
+					}
+					handler := http.HandlerFunc(apiHandler.AppCreateHandler)
+					handler.ServeHTTP(rr, req)
+				})
+				it("should pass along the annotations to CreateApp", func() {
+					Expect(fakeAppRepo.CreateAppCallCount()).To(Equal(1), "Repo CreateApp count was not invoked 1 time")
+					_, _, createAppRecord := fakeAppRepo.CreateAppArgsForCall(0)
+					Expect(createAppRecord.Annotations).To(Equal(testAnnotations))
 				})
 			})
 

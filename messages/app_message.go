@@ -31,12 +31,14 @@ func AppCreateMessageToAppRecord(requestApp AppCreateMessage) repositories.AppRe
 	}
 
 	return repositories.AppRecord{
-		Name:      requestApp.Name,
-		GUID:      "",
-		SpaceGUID: requestApp.Relationships.Space.Data.GUID,
-		State:     repositories.StoppedState,
-		Lifecycle: lifecycleBlock,
-		CreatedAt: "",
-		UpdatedAt: "",
+		Name:        requestApp.Name,
+		GUID:        "",
+		SpaceGUID:   requestApp.Relationships.Space.Data.GUID,
+		Labels:      requestApp.Metadata.Labels,
+		Annotations: requestApp.Metadata.Annotations,
+		State:       repositories.StoppedState,
+		Lifecycle:   lifecycleBlock,
+		CreatedAt:   "",
+		UpdatedAt:   "",
 	}
 }

@@ -1,12 +1,14 @@
 package apis
 
 import (
-	"code.cloudfoundry.org/cf-k8s-api/messages"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"net/http"
+
+	"code.cloudfoundry.org/cf-k8s-api/messages"
+	"github.com/google/uuid"
 
 	"code.cloudfoundry.org/cf-k8s-api/presenters"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
@@ -19,11 +21,11 @@ import (
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . CFAppRepository
 type CFAppRepository interface {
 	ConfigureClient(*rest.Config) (client.Client, error)
-	FetchApp(client.Client, string) (repositories.AppRecord, error)
-	FetchNamespace(client.Client, string) (repositories.SpaceRecord, error)
-	AppExists(client.Client, string, string) (bool, error)
-	CreateAppEnvironmentVariables(client client.Client, envVariables repositories.AppEnvVarsRecord) (repositories.AppEnvVarsRecord, error)
-	CreateApp(client.Client, repositories.AppRecord) (repositories.AppRecord, error)
+	FetchApp(client.Client, context.Context, string) (repositories.AppRecord, error)
+	FetchNamespace(client.Client, context.Context, string) (repositories.SpaceRecord, error)
+	AppExists(client.Client, context.Context, string, string) (bool, error)
+	CreateAppEnvironmentVariables(client.Client, context.Context, repositories.AppEnvVarsRecord) (repositories.AppEnvVarsRecord, error)
+	CreateApp(client.Client, context.Context, repositories.AppRecord) (repositories.AppRecord, error)
 }
 
 type AppHandler struct {
@@ -34,6 +36,7 @@ type AppHandler struct {
 }
 
 func (h *AppHandler) AppGetHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
@@ -48,7 +51,7 @@ func (h *AppHandler) AppGetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	app, err := h.AppRepo.FetchApp(client, appGUID)
+	app, err := h.AppRepo.FetchApp(client, ctx, appGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
@@ -73,6 +76,7 @@ func (h *AppHandler) AppGetHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
 	var appCreateMessage messages.AppCreateMessage
@@ -98,7 +102,7 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	namespaceGUID := appCreateMessage.Relationships.Space.Data.GUID
-	_, err = h.AppRepo.FetchNamespace(client, namespaceGUID)
+	_, err = h.AppRepo.FetchNamespace(client, ctx, namespaceGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.PermissionDeniedOrNotFoundError:
@@ -113,7 +117,7 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	appName := appCreateMessage.Name
-	appExists, err := h.AppRepo.AppExists(client, appName, namespaceGUID)
+	appExists, err := h.AppRepo.AppExists(client, ctx, appName, namespaceGUID)
 	if err != nil {
 		h.Logger.Error(err, "Failed to fetch app from Kubernetes", "App Name", appName)
 		writeUnknownErrorResponse(w)
@@ -136,7 +140,7 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 			SpaceGUID:            namespaceGUID,
 			EnvironmentVariables: appCreateMessage.EnvironmentVariables,
 		}
-		responseAppEnvSecretRecord, err := h.AppRepo.CreateAppEnvironmentVariables(client, appEnvSecretRecord)
+		responseAppEnvSecretRecord, err := h.AppRepo.CreateAppEnvironmentVariables(client, ctx, appEnvSecretRecord)
 		if err != nil {
 			h.Logger.Error(err, "Failed to create app environment vars", "App Name", appName)
 			writeUnknownErrorResponse(w)
@@ -150,7 +154,7 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 	createAppRecord.GUID = appGUID
 	createAppRecord.EnvSecretName = appEnvSecretName
 
-	responseAppRecord, err := h.AppRepo.CreateApp(client, createAppRecord)
+	responseAppRecord, err := h.AppRepo.CreateApp(client, ctx, createAppRecord)
 	if err != nil {
 		h.Logger.Error(err, "Failed to create app", "App Name", appName)
 		writeUnknownErrorResponse(w)

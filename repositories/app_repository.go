@@ -1,15 +1,16 @@
 package repositories
 
 import (
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
+	"time"
+
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	"strings"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -35,6 +36,8 @@ type AppRecord struct {
 	Name          string
 	GUID          string
 	SpaceGUID     string
+	Labels        map[string]string
+	Annotations   map[string]string
 	State         DesiredState
 	Lifecycle     Lifecycle
 	EnvSecretName string
@@ -75,10 +78,10 @@ func (f *AppRepo) ConfigureClient(config *rest.Config) (client.Client, error) {
 	return client, nil
 }
 
-func (f *AppRepo) FetchApp(client client.Client, appGUID string) (AppRecord, error) {
+func (f *AppRepo) FetchApp(client client.Client, ctx context.Context, appGUID string) (AppRecord, error) {
 	// TODO: Could look up namespace from guid => namespace cache to do Get
 	appList := &workloadsv1alpha1.CFAppList{}
-	err := client.List(context.Background(), appList)
+	err := client.List(ctx, appList)
 	if err != nil {
 		return AppRecord{}, err
 	}
@@ -88,17 +91,17 @@ func (f *AppRepo) FetchApp(client client.Client, appGUID string) (AppRecord, err
 	return f.returnApps(matches)
 }
 
-func (f *AppRepo) getAppCR(client client.Client, appGUID string, namespace string) (*workloadsv1alpha1.CFApp, error) {
+func (f *AppRepo) getAppCR(client client.Client, ctx context.Context, appGUID string, namespace string) (*workloadsv1alpha1.CFApp, error) {
 	app := &workloadsv1alpha1.CFApp{}
-	err := client.Get(context.Background(), types.NamespacedName{
+	err := client.Get(ctx, types.NamespacedName{
 		Namespace: namespace,
 		Name:      appGUID,
 	}, app)
 	return app, err
 }
 
-func (f *AppRepo) AppExists(client client.Client, appGUID string, namespace string) (bool, error) {
-	_, err := f.getAppCR(client, appGUID, namespace)
+func (f *AppRepo) AppExists(client client.Client, ctx context.Context, appGUID string, namespace string) (bool, error) {
+	_, err := f.getAppCR(client, ctx, appGUID, namespace)
 	if err != nil {
 		switch errtype := err.(type) {
 		case *k8serrors.StatusError:
@@ -113,9 +116,9 @@ func (f *AppRepo) AppExists(client client.Client, appGUID string, namespace stri
 	return true, nil
 }
 
-func (f *AppRepo) CreateApp(client client.Client, appRecord AppRecord) (AppRecord, error) {
+func (f *AppRepo) CreateApp(client client.Client, ctx context.Context, appRecord AppRecord) (AppRecord, error) {
 	cfApp := f.appRecordToCFApp(appRecord)
-	err := client.Create(context.Background(), &cfApp)
+	err := client.Create(ctx, &cfApp)
 	if err != nil {
 		return AppRecord{}, err
 	}
@@ -129,8 +132,10 @@ func (f *AppRepo) appRecordToCFApp(appRecord AppRecord) workloadsv1alpha1.CFApp 
 			APIVersion: APIVersion,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      appRecord.GUID,
-			Namespace: appRecord.SpaceGUID,
+			Name:        appRecord.GUID,
+			Namespace:   appRecord.SpaceGUID,
+			Labels:      appRecord.Labels,
+			Annotations: appRecord.Annotations,
 		},
 		Spec: workloadsv1alpha1.CFAppSpec{
 			Name:          appRecord.Name,
@@ -151,10 +156,12 @@ func (f *AppRepo) cfAppToResponseApp(cfApp workloadsv1alpha1.CFApp) AppRecord {
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfApp.ObjectMeta)
 
 	return AppRecord{
-		GUID:      cfApp.Name,
-		Name:      cfApp.Spec.Name,
-		SpaceGUID: cfApp.Namespace,
-		State:     DesiredState(cfApp.Spec.DesiredState),
+		GUID:        cfApp.Name,
+		Name:        cfApp.Spec.Name,
+		SpaceGUID:   cfApp.Namespace,
+		Labels:      cfApp.Labels,
+		Annotations: cfApp.Annotations,
+		State:       DesiredState(cfApp.Spec.DesiredState),
 		Lifecycle: Lifecycle{
 			Data: LifecycleData{
 				Buildpacks: cfApp.Spec.Lifecycle.Data.Buildpacks,
@@ -187,9 +194,9 @@ func (f *AppRepo) filterAppsByName(apps []workloadsv1alpha1.CFApp, name string) 
 	return filtered
 }
 
-func (f *AppRepo) FetchNamespace(client client.Client, nsGUID string) (SpaceRecord, error) {
+func (f *AppRepo) FetchNamespace(client client.Client, ctx context.Context, nsGUID string) (SpaceRecord, error) {
 	namespace := &v1.Namespace{}
-	err := client.Get(context.Background(), types.NamespacedName{Name: nsGUID}, namespace)
+	err := client.Get(ctx, types.NamespacedName{Name: nsGUID}, namespace)
 	if err != nil {
 		switch errtype := err.(type) {
 		case *k8serrors.StatusError:
@@ -211,9 +218,9 @@ func (f *AppRepo) v1NamespaceToSpaceRecord(namespace *v1.Namespace) SpaceRecord 
 	}
 }
 
-func (f *AppRepo) CreateAppEnvironmentVariables(client client.Client, envVariables AppEnvVarsRecord) (AppEnvVarsRecord, error) {
+func (f *AppRepo) CreateAppEnvironmentVariables(client client.Client, ctx context.Context, envVariables AppEnvVarsRecord) (AppEnvVarsRecord, error) {
 	secretObj := f.appEnvVarsRecordToSecret(envVariables)
-	err := client.Create(context.Background(), &secretObj)
+	err := client.Create(ctx, &secretObj)
 	if err != nil {
 		return AppEnvVarsRecord{}, err
 	}
