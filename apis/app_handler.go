@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"code.cloudfoundry.org/cf-k8s-api/messages"
+	"code.cloudfoundry.org/cf-k8s-api/message"
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 	"github.com/go-logr/logr"
@@ -79,7 +79,7 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	w.Header().Set("Content-Type", "application/json")
 
-	var appCreateMessage messages.AppCreateMessage
+	var appCreateMessage message.AppCreateMessage
 	err := DecodePayload(r, &appCreateMessage)
 	if err != nil {
 		var rme *requestMalformedError
@@ -149,7 +149,7 @@ func (h *AppHandler) AppCreateHandler(w http.ResponseWriter, r *http.Request) {
 		appEnvSecretName = responseAppEnvSecretRecord.Name
 	}
 
-	createAppRecord := messages.AppCreateMessageToAppRecord(appCreateMessage)
+	createAppRecord := message.AppCreateMessageToAppRecord(appCreateMessage)
 	// Set GUID and EnvSecretName
 	createAppRecord.GUID = appGUID
 	createAppRecord.EnvSecretName = appEnvSecretName
