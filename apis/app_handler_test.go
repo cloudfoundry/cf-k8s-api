@@ -42,7 +42,6 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 
 	when("the GET /v3/apps/:guid  endpoint returns successfully", func() {
 		it.Before(func() {
-			fakeAppRepo := &apisfakes.FakeCFAppRepository{}
 			FetchAppResponseApp = repositories.AppRecord{
 				GUID:      "test-app-guid",
 				Name:      "test-app",
@@ -55,7 +54,7 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 					},
 				},
 			}
-			fakeAppRepo.FetchAppReturns(FetchAppResponseApp, nil)
+			FetchAppErr = nil
 
 			fakeAppRepo := &apisfakes.FakeCFAppRepository{}
 			fakeAppRepo.FetchAppReturns(FetchAppResponseApp, FetchAppErr)
@@ -80,73 +79,76 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 			httpStatus := rr.Code
 			Expect(httpStatus).Should(Equal(http.StatusOK), "Matching HTTP response code:")
 		})
-		Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+
+		it("returns Content-Type as JSON in header", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+		})
 
 		it("returns the App in the response", func() {
-			expectedBody := `{
-				"name": "test-app",
-				"guid": "test-app-guid",
-				"state": "STOPPED",
-				"relationships": {
-					"space": {
-						"guid": "test-space-guid"
-					}
+			expectedBody, err := json.Marshal(presenter.AppResponse{
+				Name:  "test-app",
+				GUID:  "test-app-guid",
+				State: "STOPPED",
+				Relationships: presenter.Relationships{
+					"space": presenter.Relationship{
+						GUID: "test-space-guid",
+					},
 				},
-				"lifecycle": {
-					"data": {
-						"buildpacks": [],
-						"stack": ""
-					}
+				Lifecycle: presenter.Lifecycle{Data: presenter.LifecycleData{
+					Buildpacks: []string{},
+					Stack:      "",
+				}},
+				Metadata: presenter.Metadata{
+					Labels:      map[string]string{},
+					Annotations: map[string]string{},
 				},
-				"metadata": {
-					"labels": {},
-					"annotations": {}
+				Links: presenter.AppLinks{
+					Self: presenter.Link{
+						HREF: "https://api.example.org/v3/apps/test-app-guid",
+					},
+					Space: presenter.Link{
+						HREF: "https://api.example.org/v3/spaces/test-space-guid",
+					},
+					Processes: presenter.Link{
+						HREF: "https://api.example.org/v3/apps/test-app-guid/processes",
+					},
+					Packages: presenter.Link{
+						HREF: "https://api.example.org/v3/apps/test-app-guid/packages",
+					},
+					EnvironmentVariables: presenter.Link{
+						HREF: "https://api.example.org/v3/apps/test-app-guid/environment_variables",
+					},
+					CurrentDroplet: presenter.Link{
+						HREF: "https://api.example.org/v3/apps/test-app-guid/droplets/current",
+					},
+					Droplets: presenter.Link{
+						HREF: "https://api.example.org/v3/apps/test-app-guid/droplets",
+					},
+					Tasks: presenter.Link{},
+					StartAction: presenter.Link{
+						HREF:   "https://api.example.org/v3/apps/test-app-guid/actions/start",
+						Method: "POST",
+					},
+					StopAction: presenter.Link{
+						HREF:   "https://api.example.org/v3/apps/test-app-guid/actions/stop",
+						Method: "POST",
+					},
+					Revisions:         presenter.Link{},
+					DeployedRevisions: presenter.Link{},
+					Features:          presenter.Link{},
 				},
-				"links": {
-					"self": {
-						"href": "https://api.example.org/v3/apps/test-app-guid"
-					},
-					"space": {
-						"href": "https://api.example.org/v3/spaces/test-space-guid"
-					},
-					"processes": {
-						"href": "https://api.example.org/v3/apps/test-app-guid/processes"
-					},
-					"packages": {
-						"href": "https://api.example.org/v3/apps/test-app-guid/packages"
-					},
-					"environment_variables": {
-						"href": "https://api.example.org/v3/apps/test-app-guid/environment_variables"
-					},
-					"current_droplet": {
-						"href": "https://api.example.org/v3/apps/test-app-guid/droplets/current"
-					},
-					"droplets": {
-						"href": "https://api.example.org/v3/apps/test-app-guid/droplets"
-					},
-					"tasks": {},
-					"start": {
-						"href": "https://api.example.org/v3/apps/test-app-guid/actions/start",
-                  		"method": "POST"
-					},
-					"stop": {
-						"href": "https://api.example.org/v3/apps/test-app-guid/actions/stop",
-						"method": "POST"
-					},
-					"revisions": {},
-					"deployed_revisions": {},
-					"features": {}
-				}
-			}`
+			})
 
-			g.Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rr.Body.String()).Should(MatchJSON(expectedBody), "Response body matches response:")
 		})
 	})
 
 	when("the app cannot be found", func() {
 		it.Before(func() {
-			fakeAppRepo := &apisfakes.FakeCFAppRepository{}
-			fakeAppRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{Err: errors.New("not found")})
+			FetchAppResponseApp = repositories.AppRecord{}
+			FetchAppErr = repositories.NotFoundError{Err: errors.New("not found")}
 
 			req, err := http.NewRequest("GET", "/v3/apps/my-app-guid", nil)
 			Expect(err).NotTo(HaveOccurred())
@@ -184,8 +186,8 @@ func testAppsGetHandler(t *testing.T, when spec.G, it spec.S) {
 
 	when("there is some other error fetching the app", func() {
 		it.Before(func() {
-			fakeAppRepo := &apisfakes.FakeCFAppRepository{}
-			fakeAppRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("unknown"))
+			FetchAppResponseApp = repositories.AppRecord{}
+			FetchAppErr = errors.New("unknown!")
 
 			req, err := http.NewRequest("GET", "/v3/apps/my-app-guid", nil)
 			Expect(err).NotTo(HaveOccurred())
@@ -286,7 +288,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				Expect(rr.Code).To(Equal(http.StatusBadRequest))
 			})
 			it("has the expected error response body", func() {
-				expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+				expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 					Title:  "CF-MessageParseError",
 					Detail: "Request invalid due to parse error: invalid request body",
 					Code:   1001,
@@ -329,7 +331,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity))
 			})
 			it("has the expected error response body", func() {
-				expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+				expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 					Title:  "CF-UnprocessableEntity",
 					Detail: "Name must be a string",
 					Code:   10008,
@@ -373,7 +375,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity))
 			})
 			it("has the expected error response body", func() {
-				expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+				expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 					Title:  "CF-UnprocessableEntity",
 					Detail: "Environment_variables must be a map[string]string",
 					Code:   10008,
@@ -415,7 +417,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity))
 			})
 			it("has the expected error response body", func() {
-				expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+				expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 					Title:  "CF-UnprocessableEntity",
 					Detail: "Name must be a string",
 					Code:   10008,
@@ -459,7 +461,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity))
 			})
 			it("has the expected error response body", func() {
-				expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+				expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 					Title:  "CF-UnprocessableEntity",
 					Detail: "Type must be a string,Buildpacks must be a []string,Stack must be a string",
 					Code:   10008,
@@ -495,7 +497,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns a CF API formatted Error response", func() {
-				expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+				expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 					Detail: "Invalid space. Ensure that the space exists and you have access to it.",
 					Title:  "CF-UnprocessableEntity",
 					Code:   10008,
@@ -531,7 +533,7 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns a CF API formatted Error response", func() {
-				expectedBody, err := json.Marshal(presenters.ErrorsResponse{Errors: []presenters.PresentedError{{
+				expectedBody, err := json.Marshal(presenter.ErrorsResponse{Errors: []presenter.PresentedError{{
 					Detail: "App with the name 'test-app' already exists.",
 					Title:  "CF-UniquenessError",
 					Code:   10016,
@@ -609,57 +611,57 @@ func testAppsCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				})
 
 				it("returns the \"created app\"(the mock response record) in the response", func() {
-					expectedBody, err := json.Marshal(presenters.AppResponse{
+					expectedBody, err := json.Marshal(presenter.AppResponse{
 						Name:  testAppName,
 						GUID:  testAppGUID,
 						State: "STOPPED",
-						Relationships: presenters.Relationships{
-							"space": presenters.Relationship{
+						Relationships: presenter.Relationships{
+							"space": presenter.Relationship{
 								GUID: testSpaceGUID,
 							},
 						},
-						Lifecycle: presenters.Lifecycle{Data: presenters.LifecycleData{
+						Lifecycle: presenter.Lifecycle{Data: presenter.LifecycleData{
 							Buildpacks: []string{},
 							Stack:      "",
 						}},
-						Metadata: presenters.Metadata{
-							Labels:      nil,
-							Annotations: nil,
+						Metadata: presenter.Metadata{
+							Labels:      map[string]string{},
+							Annotations: map[string]string{},
 						},
-						Links: presenters.AppLinks{
-							Self: presenters.Link{
+						Links: presenter.AppLinks{
+							Self: presenter.Link{
 								HREF: "https://api.example.org/v3/apps/" + testAppGUID,
 							},
-							Space: presenters.Link{
+							Space: presenter.Link{
 								HREF: "https://api.example.org/v3/spaces/" + testSpaceGUID,
 							},
-							Processes: presenters.Link{
+							Processes: presenter.Link{
 								HREF: "https://api.example.org/v3/apps/" + testAppGUID + "/processes",
 							},
-							Packages: presenters.Link{
+							Packages: presenter.Link{
 								HREF: "https://api.example.org/v3/apps/" + testAppGUID + "/packages",
 							},
-							EnvironmentVariables: presenters.Link{
+							EnvironmentVariables: presenter.Link{
 								HREF: "https://api.example.org/v3/apps/" + testAppGUID + "/environment_variables",
 							},
-							CurrentDroplet: presenters.Link{
+							CurrentDroplet: presenter.Link{
 								HREF: "https://api.example.org/v3/apps/" + testAppGUID + "/droplets/current",
 							},
-							Droplets: presenters.Link{
+							Droplets: presenter.Link{
 								HREF: "https://api.example.org/v3/apps/" + testAppGUID + "/droplets",
 							},
-							Tasks: presenters.Link{},
-							StartAction: presenters.Link{
+							Tasks: presenter.Link{},
+							StartAction: presenter.Link{
 								HREF:   "https://api.example.org/v3/apps/" + testAppGUID + "/actions/start",
 								Method: "POST",
 							},
-							StopAction: presenters.Link{
+							StopAction: presenter.Link{
 								HREF:   "https://api.example.org/v3/apps/" + testAppGUID + "/actions/stop",
 								Method: "POST",
 							},
-							Revisions:         presenters.Link{},
-							DeployedRevisions: presenters.Link{},
-							Features:          presenters.Link{},
+							Revisions:         presenter.Link{},
+							DeployedRevisions: presenter.Link{},
+							Features:          presenter.Link{},
 						},
 					})
 
