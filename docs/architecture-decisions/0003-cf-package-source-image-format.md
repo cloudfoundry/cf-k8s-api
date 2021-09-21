@@ -25,7 +25,7 @@ Some of the questions we intend to answer:
 **Complexity** - Do we take up additional complexity to convert the source code to a `imgpkg` and to stage with kpack. How will re-staging work when there are stack updates?
 
 - In order to build `imgpkg` images, you need to add an additional `.imgpkg/images.yaml` file to the source code and provide it to the `imgpkg` cli
-  - We currently have an open question on the Carvel slack asking if there is a golang client
+  - Currently, no official support for imgpkg client. However, some users have used classes from [pkg/imgpkg/cmd](https://github.com/vmware-tanzu/carvel-imgpkg/tree/develop/pkg/imgpkg/cmd) repository. The repo doesn't maintain backwards compatibility. 
 - Restaging should not affect `imgpkg` images differently from single-layer OCI images.
 
 **Benefits** - Do we see benefits of using imgpkg be of value to CF users.
@@ -40,6 +40,6 @@ At this point, we do not recommend switching from single-layer OCI images to `im
 
 ## Consequences
 
-- We are do not follow the standard for source images set by the Carvel toolchain
+- We do not follow the standard for source images set by the Carvel toolchain
   - However, the source packaging implementation can be easily modified later. There will be a clear divide in the Shim package upload code to support future extension.
 
