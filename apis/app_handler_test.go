@@ -14,9 +14,9 @@ import (
 	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 
-	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
+	"github.com/stretchr/testify/require"
 	"k8s.io/client-go/rest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -27,7 +27,7 @@ func TestApp(t *testing.T) {
 }
 
 func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
-	g := NewWithT(t)
+	must := require.New(t)
 
 	const (
 		testAppHandlerLoggerName = "TestAppHandler"
@@ -58,7 +58,7 @@ func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
 
 		var err error
 		req, err = http.NewRequest("GET", "/v3/apps/my-app-guid", nil)
-		g.Expect(err).NotTo(HaveOccurred())
+		must.NoError(err)
 
 		rr = httptest.NewRecorder()
 		clientBuilder := new(fake.ClientBuilder)
@@ -78,16 +78,15 @@ func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns status 200 OK", func() {
-			g.Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+			must.Equal(http.StatusOK, rr.Code)
 		})
 
 		it("returns Content-Type as JSON in header", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+			must.Equal(jsonHeader, rr.Header().Get("Content-Type"))
 		})
 
 		it("returns the App in the response", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
+			expectedJSON := `{
 				"guid": "test-app-guid",
 				"created_at": "",
 				"updated_at": "",
@@ -154,7 +153,8 @@ func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
 					"href": "https://api.example.org/v3/apps/test-app-guid/features"
 				  }
 				}
-			}`), "Response body matches response:")
+			}`
+			must.JSONEq(expectedJSON, rr.Body.String())
 		})
 	})
 
@@ -166,16 +166,15 @@ func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns status 404 NotFound", func() {
-			g.Expect(rr.Code).Should(Equal(http.StatusNotFound), "Matching HTTP response code:")
+			must.Equal(http.StatusNotFound, rr.Code)
 		})
 
 		it("returns Content-Type as JSON in header", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+			must.Equal(jsonHeader, rr.Header().Get("Content-Type"))
 		})
 
 		it("returns a CF API formatted Error response", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
+			expectedJSON := `{
 				"errors": [
 					{
 						"code": 10010,
@@ -183,7 +182,8 @@ func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
 						"detail": "App not found"
 					}
 				]
-			}`), "Response body matches response:")
+			}`
+			must.JSONEq(expectedJSON, rr.Body.String())
 		})
 	})
 
@@ -195,16 +195,15 @@ func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns status 500 InternalServerError", func() {
-			g.Expect(rr.Code).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
+			must.Equal(http.StatusInternalServerError, rr.Code)
 		})
 
 		it("returns Content-Type as JSON in header", func() {
-			contentTypeHeader := rr.Header().Get("Content-Type")
-			g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+			must.Equal(jsonHeader, rr.Header().Get("Content-Type"))
 		})
 
 		it("returns a CF API formatted Error response", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
+			expectedJSON := `{
 				"errors": [
 					{
 						"title": "UnknownError",
@@ -212,7 +211,8 @@ func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
 						"code": 10001
 					}
 				]
-			}`), "Response body matches response:")
+			}`
+			must.JSONEq(expectedJSON, rr.Body.String())
 		})
 	})
 
@@ -241,8 +241,7 @@ func initializeCreateAppRequestBody(appName, spaceGUID string, envVars, labels, 
 }
 
 func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
-	g := NewWithT(t)
-
+	must := require.New(t)
 	const (
 		jsonHeader       = "application/json"
 		defaultServerURL = "https://api.example.org"
@@ -260,7 +259,7 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 
 	makePostRequest := func(requestBody string) {
 		req, err := http.NewRequest("POST", "/v3/apps", strings.NewReader(requestBody))
-		g.Expect(err).NotTo(HaveOccurred())
+		must.NoError(err)
 
 		handler := http.HandlerFunc(apiHandler.AppCreateHandler)
 		handler.ServeHTTP(rr, req)
@@ -285,16 +284,15 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns a status 400 Bad Request ", func() {
-				g.Expect(rr.Code).Should(Equal(http.StatusBadRequest), "Matching HTTP response code:")
+				must.Equal(http.StatusBadRequest, rr.Code)
 			})
 
 			it("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+				must.Equal(jsonHeader, rr.Header().Get("Content-Type"))
 			})
 
 			it("has the expected error response body", func() {
-				g.Expect(rr.Body.String()).Should(MatchJSON(`{
+				expectedJSON := `{
 					"errors": [
 						{
 							"title": "CF-MessageParseError",
@@ -302,7 +300,8 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 							"code": 1001
 						}
 					]
-				}`), "Response body matches response:")
+				}`
+				must.JSONEq(expectedJSON, rr.Body.String())
 			})
 		})
 
@@ -312,16 +311,15 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns a status 422 Bad Request ", func() {
-				g.Expect(rr.Code).Should(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
+				must.Equal(http.StatusUnprocessableEntity, rr.Code)
 			})
 
 			it("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+				must.Equal(jsonHeader, rr.Header().Get("Content-Type"))
 			})
 
 			it("has the expected error response body", func() {
-				g.Expect(rr.Body.String()).Should(MatchJSON(`{
+				expectedJSON := `{
 					"errors": [
 						{
 							"title": "CF-UnprocessableEntity",
@@ -329,7 +327,8 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 							"code": 10008
 						}
 					]
-				}`), "Response body matches response:")
+				}`
+				must.JSONEq(expectedJSON, rr.Body.String())
 			})
 		})
 
@@ -348,16 +347,15 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns a status 422 Unprocessable Entity", func() {
-				g.Expect(rr.Code).Should(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
+				must.Equal(http.StatusUnprocessableEntity, rr.Code)
 			})
 
 			it("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+				must.Equal(jsonHeader, rr.Header().Get("Content-Type"))
 			})
 
 			it("has the expected error response body", func() {
-				g.Expect(rr.Body.String()).Should(MatchJSON(`{
+				expectedJSON := `{
 					"errors": [
 						{
 							"code":   10008,
@@ -365,7 +363,8 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 							"detail": "Name must be a string"
 						}
 					]
-				}`), "Response body matches response:")
+				}`
+				must.JSONEq(expectedJSON, rr.Body.String())
 			})
 		})
 
@@ -385,16 +384,15 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns a status 422 Unprocessable Entity", func() {
-				g.Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
+				must.Equal(http.StatusUnprocessableEntity, rr.Code)
 			})
 
 			it("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+				must.Equal(jsonHeader, rr.Header().Get("Content-Type"))
 			})
 
 			it("has the expected error response body", func() {
-				g.Expect(rr.Body.String()).Should(MatchJSON(`{
+				expectedJSON := `{
 					"errors": [
 						{
 							"title": "CF-UnprocessableEntity",
@@ -402,7 +400,8 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 							"code": 10008
 						}
 					]
-				}`), "Response body matches response:")
+				}`
+				must.JSONEq(expectedJSON, rr.Body.String())
 			})
 		})
 
@@ -420,16 +419,15 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns a status 422 Unprocessable Entity", func() {
-				g.Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
+				must.Equal(http.StatusUnprocessableEntity, rr.Code)
 			})
 
 			it("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+				must.Equal(jsonHeader, rr.Header().Get("Content-Type"))
 			})
 
 			it("has the expected error response body", func() {
-				g.Expect(rr.Body.String()).Should(MatchJSON(`{
+				expectedJSON := `{
 					"errors": [
 						{
 							"title": "CF-UnprocessableEntity",
@@ -437,7 +435,8 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 							"code": 10008
 						}
 					]
-				}`), "Response body matches response:")
+				}`
+				must.JSONEq(expectedJSON, rr.Body.String())
 			})
 		})
 
@@ -457,16 +456,15 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns a status 422 Unprocessable Entity", func() {
-				g.Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
+				must.Equal(http.StatusUnprocessableEntity, rr.Code)
 			})
 
 			it("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+				must.Equal(jsonHeader, rr.Header().Get("Content-Type"))
 			})
 
 			it("has the expected error response body", func() {
-				g.Expect(rr.Body.String()).Should(MatchJSON(`{
+				expectedJSON := `{
 					"errors": [
 						{
 							"title": "CF-UnprocessableEntity",
@@ -474,7 +472,8 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 							"code": 10008
 						}
 					]
-				}`), "Response body matches response:")
+				}`
+				must.JSONEq(expectedJSON, rr.Body.String())
 			})
 		})
 
@@ -488,16 +487,15 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns a status 422 Unprocessable Entity", func() {
-				g.Expect(rr.Code).Should(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
+				must.Equal(http.StatusUnprocessableEntity, rr.Code)
 			})
 
 			it("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+				must.Equal(jsonHeader, rr.Header().Get("Content-Type"))
 			})
 
 			it("returns a CF API formatted Error response", func() {
-				g.Expect(rr.Body.String()).Should(MatchJSON(`{
+				expectedJSON := `{
 					"errors": [
 						{
 							"title": "CF-UnprocessableEntity",
@@ -505,7 +503,8 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 							"code": 10008
 						}
 					]
-				}`), "Response body matches response:")
+				}`
+				must.JSONEq(expectedJSON, rr.Body.String())
 			})
 		})
 
@@ -520,16 +519,15 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns a status 422 Unprocessable Entity", func() {
-				g.Expect(rr.Code).Should(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
+				must.Equal(http.StatusUnprocessableEntity, rr.Code)
 			})
 
 			it("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+				must.Equal(jsonHeader, rr.Header().Get("Content-Type"))
 			})
 
 			it("returns a CF API formatted Error response", func() {
-				g.Expect(rr.Body.String()).Should(MatchJSON(`{
+				expectedJSON := `{
 					"errors": [
 						{
 							"title": "CF-UniquenessError",
@@ -537,7 +535,8 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 							"code": 10016
 						}
 					]
-				}`), "Response body matches response:")
+				}`
+				must.JSONEq(expectedJSON, rr.Body.String())
 			})
 		})
 
@@ -552,16 +551,15 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns status 500 InternalServerError", func() {
-				g.Expect(rr.Code).Should(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
+				must.Equal(http.StatusInternalServerError, rr.Code)
 			})
 
 			it("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+				must.Equal(jsonHeader, rr.Header().Get("Content-Type"))
 			})
 
 			it("returns a CF API formatted Error response", func() {
-				g.Expect(rr.Body.String()).Should(MatchJSON(`{
+				expectedJSON := `{
 					"errors": [
 						{
 							"title": "UnknownError",
@@ -569,7 +567,8 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 							"code": 10001
 						}
 					]
-				}`), "Response body matches response:")
+				}`
+				must.JSONEq(expectedJSON, rr.Body.String())
 			})
 		})
 
@@ -597,26 +596,25 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				})
 
 				it("should invoke repo CreateApp with a random GUID", func() {
-					g.Expect(appRepo.CreateAppCallCount()).To(Equal(1), "Repo CreateApp count was not invoked 1 time")
+					must.Equal(1, appRepo.CreateAppCallCount())
 					_, _, createAppRecord := appRepo.CreateAppArgsForCall(0)
-					g.Expect(createAppRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"), "CreateApp record GUID was not a 36 character guid")
+					must.Regexp("^[-0-9a-f]{36}$", createAppRecord.GUID)
 				})
 
 				it("should not invoke repo CreateAppEnvironmentVariables when no environment variables are provided", func() {
-					g.Expect(appRepo.CreateAppEnvironmentVariablesCallCount()).To(BeZero(), "Repo CreateAppEnvironmentVariables was invoked even though no environment vars were provided")
+					must.Equalf(0, appRepo.CreateAppEnvironmentVariablesCallCount(), "Repo CreateAppEnvironmentVariables was invoked even though no environment vars were provided")
 				})
 
 				it("return status 200 OK", func() {
-					g.Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+					must.Equal(http.StatusOK, rr.Code)
 				})
 
 				it("returns Content-Type as JSON in header", func() {
-					contentTypeHeader := rr.Header().Get("Content-Type")
-					g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+					must.Equal(jsonHeader, rr.Header().Get("Content-Type"))
 				})
 
 				it("returns the \"created app\"(the mock response record) in the response", func() {
-					g.Expect(rr.Body.String()).Should(MatchJSON(`{
+					expectedJSON := `{
 						"guid": "test-app-guid",
 						"created_at": "",
 						"updated_at": "",
@@ -683,7 +681,8 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 							"href": "https://api.example.org/v3/apps/test-app-guid/features"
 						  }
 						}
-					}`), "Response body matches response:")
+					}`
+					must.JSONEq(expectedJSON, rr.Body.String())
 				})
 			})
 
@@ -711,16 +710,16 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 					})
 
 					it("should call Repo CreateAppEnvironmentVariables with the space and environment vars", func() {
-						g.Expect(appRepo.CreateAppEnvironmentVariablesCallCount()).To(Equal(1), "Repo CreateAppEnvironmentVariables count was not invoked 1 time")
+						must.Equal(1, appRepo.CreateAppEnvironmentVariablesCallCount())
 						_, _, createAppEnvVarsRecord := appRepo.CreateAppEnvironmentVariablesArgsForCall(0)
-						g.Expect(createAppEnvVarsRecord.EnvironmentVariables).To(Equal(testEnvironmentVariables))
-						g.Expect(createAppEnvVarsRecord.SpaceGUID).To(Equal(testSpaceGUID))
+						must.Equal(testEnvironmentVariables, createAppEnvVarsRecord.EnvironmentVariables)
+						must.Equal(testSpaceGUID, createAppEnvVarsRecord.SpaceGUID)
 					})
 
 					it("should call Repo CreateApp and provide the name of the created env Secret", func() {
-						g.Expect(appRepo.CreateAppCallCount()).To(Equal(1), "Repo CreateApp count was not invoked 1 time")
+						must.Equal(1, appRepo.CreateAppCallCount())
 						_, _, createAppRecord := appRepo.CreateAppArgsForCall(0)
-						g.Expect(createAppRecord.EnvSecretName).To(Equal(createEnvVarsResponseName))
+						must.Equal(createEnvVarsResponseName, createAppRecord.EnvSecretName)
 					})
 				})
 
@@ -732,16 +731,15 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 					})
 
 					it("should return an error", func() {
-						g.Expect(rr.Code).To(Equal(http.StatusInternalServerError), "Matching HTTP response code:")
+						must.Equal(http.StatusInternalServerError, rr.Code)
 					})
 
 					it("returns Content-Type as JSON in header", func() {
-						contentTypeHeader := rr.Header().Get("Content-Type")
-						g.Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+						must.Equal(jsonHeader, rr.Header().Get("Content-Type"))
 					})
 
 					it("has the expected error response body", func() {
-						g.Expect(rr.Body.String()).Should(MatchJSON(`{
+						expectedJSON := `{
 							"errors": [
 								{
 									"title": "UnknownError",
@@ -749,7 +747,8 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 									"code": 10001
 								}
 							]
-						}`), "Response body matches response:")
+						}`
+						must.JSONEq(expectedJSON, rr.Body.String())
 					})
 				})
 			})
@@ -767,9 +766,9 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				})
 
 				it("should pass along the labels to CreateApp", func() {
-					g.Expect(appRepo.CreateAppCallCount()).To(Equal(1), "Repo CreateApp count was not invoked 1 time")
+					must.Equal(1, appRepo.CreateAppCallCount())
 					_, _, createAppRecord := appRepo.CreateAppArgsForCall(0)
-					g.Expect(createAppRecord.Labels).To(Equal(testLabels))
+					must.Equal(testLabels, createAppRecord.Labels)
 				})
 			})
 
@@ -785,9 +784,9 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 				})
 
 				it("should pass along the annotations to CreateApp", func() {
-					g.Expect(appRepo.CreateAppCallCount()).To(Equal(1), "Repo CreateApp count was not invoked 1 time")
+					must.Equal(1, appRepo.CreateAppCallCount())
 					_, _, createAppRecord := appRepo.CreateAppArgsForCall(0)
-					g.Expect(createAppRecord.Annotations).To(Equal(testAnnotations))
+					must.Equal(testAnnotations, createAppRecord.Annotations)
 				})
 			})
 		})
