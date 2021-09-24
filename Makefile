@@ -30,9 +30,9 @@ test: fmt vet ## Run tests.
 	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.8.3/hack/setup-envtest.sh
 	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test ./... -coverprofile cover.out -shuffle on
 
-test-e2e:
+test-e2e: ginkgo
 	./scripts/deploy-on-kind.sh e2e
-	KUBECONFIG="${HOME}/.kube/e2e.yml" API_SERVER_ROOT=http://localhost ROOT_NAMESPACE=cf-k8s-api-system go test -tags e2e -count 1 ./tests/e2e
+	KUBECONFIG="${HOME}/.kube/e2e.yml" API_SERVER_ROOT=http://localhost ROOT_NAMESPACE=cf-k8s-api-system $(GINKGO) -p -randomizeAllSpecs -randomizeSuites -keepGoing -tags e2e tests/e2e
 
 run: fmt vet ## Run a controller from your host.
 	go run ./main.go
@@ -68,6 +68,10 @@ controller-gen: ## Download controller-gen locally if necessary.
 KUSTOMIZE = $(shell pwd)/bin/kustomize
 kustomize: ## Download kustomize locally if necessary.
 	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.2.0)
+
+GINKGO = $(shell pwd)/bin/ginkgo
+ginkgo:
+	$(call go-get-tool,$(GINKGO),github.com/onsi/ginkgo/ginkgo@latest)
 
 HNC_VERSION ?= v0.8.0
 hnc-install:

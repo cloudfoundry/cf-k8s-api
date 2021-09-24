@@ -10,7 +10,8 @@ import (
 
 const (
 	// TODO: repetition with handler endpoint?
-	orgsBase = "/v3/organizations"
+	orgsBase   = "/v3/organizations"
+	spacesBase = "/v3/spaces"
 )
 
 type OrgListResponse struct {
@@ -35,6 +36,26 @@ type OrgLinks struct {
 	Domains       *Link `json:"domains,omitempty"`
 	DefaultDomain *Link `json:"default_domain,omitempty"`
 	Quota         *Link `json:"quota,omitempty"`
+}
+
+type SpaceListResponse struct {
+	Pagination PaginationData  `json:"pagination"`
+	Resources  []SpaceResponse `json:"resources"`
+}
+
+type SpaceResponse struct {
+	Name          string        `json:"name"`
+	GUID          string        `json:"guid"`
+	CreatedAt     string        `json:"created_at"`
+	UpdatedAt     string        `json:"updated_at"`
+	Links         SpaceLinks    `json:"links"`
+	Metadata      Metadata      `json:"metadata"`
+	Relationships Relationships `json:"relationships"`
+}
+
+type SpaceLinks struct {
+	Self         *Link `json:"self"`
+	Organization *Link `json:"organization"`
 }
 
 func ForOrgList(orgs []repositories.OrgRecord, apiBaseURL string) OrgListResponse {
@@ -77,5 +98,59 @@ func ForOrgList(orgs []repositories.OrgRecord, apiBaseURL string) OrgListRespons
 			},
 		},
 		Resources: orgResponses,
+	}
+}
+
+func ForSpaceList(spaces []repositories.SpaceRecord, apiBaseURL string) SpaceListResponse {
+	baseURL, _ := neturl.Parse(apiBaseURL)
+	baseURL.Path = spacesBase
+	baseURL.RawQuery = "page=1"
+
+	selfLink, _ := neturl.Parse(apiBaseURL)
+	orgLink, _ := neturl.Parse(apiBaseURL)
+
+	spaceResponses := []SpaceResponse{}
+	for _, space := range spaces {
+		selfLink.Path = path.Join(spacesBase, space.GUID)
+		orgLink.Path = path.Join(orgsBase, space.OrganizationGUID)
+		spaceResponses = append(spaceResponses, SpaceResponse{
+			Name:      space.Name,
+			GUID:      space.GUID,
+			CreatedAt: space.CreatedAt.UTC().Format(time.RFC3339),
+			UpdatedAt: space.CreatedAt.UTC().Format(time.RFC3339),
+			Metadata: Metadata{
+				Labels:      map[string]string{},
+				Annotations: map[string]string{},
+			},
+			Relationships: Relationships{
+				"organization": Relationship{
+					Data: RelationshipData{
+						GUID: space.OrganizationGUID,
+					},
+				},
+			},
+			Links: SpaceLinks{
+				Self: &Link{
+					HREF: selfLink.String(),
+				},
+				Organization: &Link{
+					HREF: orgLink.String(),
+				},
+			},
+		})
+	}
+
+	return SpaceListResponse{
+		Pagination: PaginationData{
+			TotalResults: len(spaces),
+			TotalPages:   1,
+			First: PageRef{
+				HREF: prefixedLinkURL(apiBaseURL, "v3/spaces?page=1"),
+			},
+			Last: PageRef{
+				HREF: prefixedLinkURL(apiBaseURL, "v3/spaces?page=1"),
+			},
+		},
+		Resources: spaceResponses,
 	}
 }
