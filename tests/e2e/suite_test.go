@@ -4,6 +4,7 @@
 package e2e_test
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"testing"
@@ -90,9 +91,9 @@ func ensureServerIsUp() {
 	}, "30s").Should(Equal(http.StatusOK), "API Server at %s was not running after 30 seconds", apiServerRoot)
 }
 
-func generateGUID() string {
+func generateGUID(prefix string) string {
 	guid, err := uuid.GenerateUUID()
 	g.Expect(err).NotTo(HaveOccurred())
 
-	return guid[:30]
+	return fmt.Sprintf("%s-%s", prefix, guid[:6])
 }
