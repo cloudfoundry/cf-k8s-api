@@ -11,7 +11,8 @@ import (
 )
 
 const (
-	OrgNameLabel = "cloudfoundry.org/org-name"
+	OrgNameLabel   = "cloudfoundry.org/org-name"
+	SpaceNameLabel = "cloudfoundry.org/space-name"
 )
 
 type OrgRecord struct {
@@ -20,6 +21,14 @@ type OrgRecord struct {
 	Suspended bool
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+type SpaceRecord struct {
+	Name             string
+	GUID             string
+	OrganizationGUID string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
 
 type OrgRepo struct {
@@ -65,4 +74,69 @@ func (r *OrgRepo) FetchOrgs(ctx context.Context, names []string) ([]OrgRecord, e
 	}
 
 	return records, nil
+}
+
+func (r *OrgRepo) FetchSpaces(ctx context.Context, organizationGUIDs, names []string) ([]SpaceRecord, error) {
+	subnamespaceAnchorList := &v1alpha2.SubnamespaceAnchorList{}
+
+	err := r.privilegedClient.List(ctx, subnamespaceAnchorList)
+	if err != nil {
+		return nil, err
+	}
+
+	orgsFilter := toMap(organizationGUIDs)
+	orgUIDs := map[string]string{}
+	for _, anchor := range subnamespaceAnchorList.Items {
+		if anchor.Namespace != r.rootNamespace {
+			continue
+		}
+
+		anchorUID := string(anchor.UID)
+		if !matchFilter(orgsFilter, anchorUID) {
+			continue
+		}
+
+		orgUIDs[anchor.Name] = anchorUID
+	}
+
+	nameFilter := toMap(names)
+	records := []SpaceRecord{}
+	for _, anchor := range subnamespaceAnchorList.Items {
+		spaceName := anchor.Labels[SpaceNameLabel]
+		if !matchFilter(nameFilter, spaceName) {
+			continue
+		}
+
+		if _, ok := orgUIDs[anchor.Namespace]; !ok {
+			continue
+		}
+
+		records = append(records, SpaceRecord{
+			Name:             spaceName,
+			GUID:             string(anchor.UID),
+			OrganizationGUID: orgUIDs[anchor.Namespace],
+			CreatedAt:        anchor.CreationTimestamp.Time,
+			UpdatedAt:        anchor.CreationTimestamp.Time,
+		})
+	}
+
+	return records, nil
+}
+
+func matchFilter(filter map[string]bool, value string) bool {
+	if len(filter) == 0 {
+		return true
+	}
+
+	_, ok := filter[value]
+	return ok
+}
+
+func toMap(elements []string) map[string]bool {
+	result := map[string]bool{}
+	for _, element := range elements {
+		result[element] = true
+	}
+
+	return result
 }
