@@ -6,6 +6,7 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	"github.com/sclevine/spec"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,7 +21,8 @@ var _ = SuiteDescribe("Org Repo", func(t *testing.T, when spec.G, it spec.S) {
 		ctx           context.Context
 		rootNamespace string
 
-		org1Ns, org2Ns, org3Ns *hnsv1alpha2.SubnamespaceAnchor
+		org1Ns, org2Ns, org3Ns                                           *hnsv1alpha2.SubnamespaceAnchor
+		space11Ns, space12Ns, space21Ns, space22Ns, space31Ns, space32Ns *hnsv1alpha2.SubnamespaceAnchor
 	)
 
 	it.Before(func() {
@@ -54,8 +56,61 @@ var _ = SuiteDescribe("Org Repo", func(t *testing.T, when spec.G, it spec.S) {
 		}
 
 		g.Expect(k8sClient.Create(ctx, org1Ns)).To(Succeed())
+		g.Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: org1Ns.Name}})).To(Succeed())
 		g.Expect(k8sClient.Create(ctx, org2Ns)).To(Succeed())
+		g.Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: org2Ns.Name}})).To(Succeed())
 		g.Expect(k8sClient.Create(ctx, org3Ns)).To(Succeed())
+		g.Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: org3Ns.Name}})).To(Succeed())
+
+		space11Ns = &hnsv1alpha2.SubnamespaceAnchor{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "space11",
+				Namespace:    org1Ns.Name,
+				Labels:       map[string]string{repositories.SpaceNameLabel: "space11"},
+			},
+		}
+		space12Ns = &hnsv1alpha2.SubnamespaceAnchor{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "space12",
+				Namespace:    org1Ns.Name,
+				Labels:       map[string]string{repositories.SpaceNameLabel: "space12"},
+			},
+		}
+		space21Ns = &hnsv1alpha2.SubnamespaceAnchor{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "space21",
+				Namespace:    org2Ns.Name,
+				Labels:       map[string]string{repositories.SpaceNameLabel: "space21"},
+			},
+		}
+		space22Ns = &hnsv1alpha2.SubnamespaceAnchor{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "space22",
+				Namespace:    org2Ns.Name,
+				Labels:       map[string]string{repositories.SpaceNameLabel: "space22"},
+			},
+		}
+		space31Ns = &hnsv1alpha2.SubnamespaceAnchor{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "space31",
+				Namespace:    org3Ns.Name,
+				Labels:       map[string]string{repositories.SpaceNameLabel: "space31"},
+			},
+		}
+		space32Ns = &hnsv1alpha2.SubnamespaceAnchor{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "space32",
+				Namespace:    org3Ns.Name,
+				Labels:       map[string]string{repositories.SpaceNameLabel: "space32"},
+			},
+		}
+
+		g.Expect(k8sClient.Create(ctx, space11Ns)).To(Succeed())
+		g.Expect(k8sClient.Create(ctx, space12Ns)).To(Succeed())
+		g.Expect(k8sClient.Create(ctx, space21Ns)).To(Succeed())
+		g.Expect(k8sClient.Create(ctx, space22Ns)).To(Succeed())
+		g.Expect(k8sClient.Create(ctx, space31Ns)).To(Succeed())
+		g.Expect(k8sClient.Create(ctx, space32Ns)).To(Succeed())
 	})
 
 	it("returns the 3 orgs", func() {
@@ -102,6 +157,80 @@ var _ = SuiteDescribe("Org Repo", func(t *testing.T, when spec.G, it spec.S) {
 					UpdatedAt: org3Ns.CreationTimestamp.Time,
 					GUID:      string(org3Ns.UID),
 				},
+			))
+		})
+	})
+
+	it("returns the 6 spaces", func() {
+		spaces, err := orgRepo.FetchSpaces(ctx, []string{}, []string{})
+		g.Expect(err).NotTo(HaveOccurred())
+
+		g.Expect(spaces).To(ConsistOf(
+			repositories.SpaceRecord{
+				Name:             "space11",
+				CreatedAt:        space11Ns.CreationTimestamp.Time,
+				UpdatedAt:        space11Ns.CreationTimestamp.Time,
+				GUID:             string(space11Ns.UID),
+				OrganizationGUID: string(org1Ns.UID),
+			},
+			repositories.SpaceRecord{
+				Name:             "space12",
+				CreatedAt:        space12Ns.CreationTimestamp.Time,
+				UpdatedAt:        space12Ns.CreationTimestamp.Time,
+				GUID:             string(space12Ns.UID),
+				OrganizationGUID: string(org1Ns.UID),
+			},
+			repositories.SpaceRecord{
+				Name:             "space21",
+				CreatedAt:        space21Ns.CreationTimestamp.Time,
+				UpdatedAt:        space21Ns.CreationTimestamp.Time,
+				GUID:             string(space21Ns.UID),
+				OrganizationGUID: string(org2Ns.UID),
+			},
+			repositories.SpaceRecord{
+				Name:             "space22",
+				CreatedAt:        space22Ns.CreationTimestamp.Time,
+				UpdatedAt:        space22Ns.CreationTimestamp.Time,
+				GUID:             string(space22Ns.UID),
+				OrganizationGUID: string(org2Ns.UID),
+			},
+			repositories.SpaceRecord{
+				Name:             "space31",
+				CreatedAt:        space31Ns.CreationTimestamp.Time,
+				UpdatedAt:        space31Ns.CreationTimestamp.Time,
+				GUID:             string(space31Ns.UID),
+				OrganizationGUID: string(org3Ns.UID),
+			},
+			repositories.SpaceRecord{
+				Name:             "space32",
+				CreatedAt:        space32Ns.CreationTimestamp.Time,
+				UpdatedAt:        space32Ns.CreationTimestamp.Time,
+				GUID:             string(space32Ns.UID),
+				OrganizationGUID: string(org3Ns.UID),
+			},
+		))
+	})
+
+	when("filtering by org guids", func() {
+		it("only retruns the spaces belonging to the specified org guids", func() {
+			spaces, err := orgRepo.FetchSpaces(ctx, []string{string(org1Ns.UID), string(org3Ns.UID)}, []string{})
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(spaces).To(ConsistOf(
+				MatchFields(IgnoreExtras, Fields{"Name": Equal("space11")}),
+				MatchFields(IgnoreExtras, Fields{"Name": Equal("space12")}),
+				MatchFields(IgnoreExtras, Fields{"Name": Equal("space31")}),
+				MatchFields(IgnoreExtras, Fields{"Name": Equal("space32")}),
+			))
+		})
+	})
+
+	when("filtering by space names", func() {
+		it("only retruns the spaces matching the specified names", func() {
+			spaces, err := orgRepo.FetchSpaces(ctx, []string{}, []string{"space11", "space31", "space41"})
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(spaces).To(ConsistOf(
+				MatchFields(IgnoreExtras, Fields{"Name": Equal("space11")}),
+				MatchFields(IgnoreExtras, Fields{"Name": Equal("space31")}),
 			))
 		})
 	})

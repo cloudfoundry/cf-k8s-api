@@ -58,11 +58,6 @@ type LifecycleData struct {
 	Stack      string
 }
 
-type SpaceRecord struct {
-	Name             string
-	OrganizationGUID string
-}
-
 type AppEnvVarsRecord struct {
 	Name                 string
 	AppGUID              string
@@ -196,7 +191,7 @@ func (f *AppRepo) FetchNamespace(ctx context.Context, client client.Client, nsGU
 }
 
 func (f *AppRepo) v1NamespaceToSpaceRecord(namespace *v1.Namespace) SpaceRecord {
-	//TODO How do we derive Organization GUID here?
+	// TODO How do we derive Organization GUID here?
 	return SpaceRecord{
 		Name:             namespace.Name,
 		OrganizationGUID: "",
@@ -217,6 +212,7 @@ var staticCFApp workloadsv1alpha1.CFApp
 func (f *AppRepo) GenerateEnvSecretName(appGUID string) string {
 	return appGUID + "-env"
 }
+
 func (f *AppRepo) extractAppGUIDFromEnvSecretName(envSecretName string) string {
 	return strings.Trim(envSecretName, "-env")
 }
