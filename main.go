@@ -121,6 +121,10 @@ func main() {
 			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient),
 			config.ServerURL,
 		),
+		apis.NewSpaceHandler(
+			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient),
+			config.ServerURL,
+		),
 	}
 
 	router := mux.NewRouter()
