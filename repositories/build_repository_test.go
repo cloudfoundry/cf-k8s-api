@@ -3,6 +3,7 @@ package repositories_test
 import (
 	"context"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/types"
 	"testing"
 	"time"
 
@@ -17,7 +18,7 @@ import (
 )
 
 var _ = SuiteDescribe("Build Repository FetchBuild", testFetchBuild)
-
+var _ = SuiteDescribe("Build Repository CreateBuild", testCreateBuild)
 func testFetchBuild(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
 
@@ -365,4 +366,123 @@ func testFetchBuild(t *testing.T, when spec.G, it spec.S) {
 			g.Expect(err).To(MatchError(NotFoundError{}))
 		})
 	})
+}
+
+
+func testCreateBuild(t *testing.T, when spec.G, it spec.S) {
+	g := NewWithT(t)
+
+	const (
+		appGUID = "the-app-guid"
+		packageGUID = "the-package-guid"
+
+		buildStagingState = "STAGING"
+	)
+
+	var (
+		buildRepo *BuildRepo
+		client client.Client
+		buildCreateMsg BuildCreateMessage
+		spaceGUID string
+	)
+
+	it.Before(func() {
+		buildRepo = new(BuildRepo)
+
+		var err error
+		client, err = BuildClient(k8sConfig)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		beforeCtx := context.Background()
+		spaceGUID = generateGUID()
+		g.Expect(
+			k8sClient.Create(beforeCtx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: spaceGUID}}),
+		).To(Succeed())
+
+		buildCreateMsg = BuildCreateMessage{
+			AppGUID:     appGUID,
+			PackageGUID: packageGUID,
+			SpaceGUID:   spaceGUID,
+		}
+
+
+	})
+
+	when("creating a Build", func() {
+
+		var (
+			buildCreateRecord BuildRecord
+			buildCreateErr error
+		)
+
+		it.Before(func() {
+			ctx := context.Background()
+			buildCreateRecord, buildCreateErr = buildRepo.CreateBuild(ctx, client, buildCreateMsg)
+		})
+
+		it.After(func() {
+			afterCtx := context.Background()
+			g.Eventually(func() error {
+				return cleanupBuild(afterCtx, client, buildCreateRecord.GUID, spaceGUID)
+			}, 5*time.Second, 250*time.Millisecond).Should(Succeed())
+		})
+
+		it("does not return an error", func() {
+			g.Expect(buildCreateErr).NotTo(HaveOccurred())
+		})
+
+		when("examining the returned record", func() {
+			it("is not empty", func() {
+				g.Expect(buildCreateRecord).ToNot(Equal(BuildCreateMessage{}))
+			})
+			it("contains a GUID", func() {
+				g.Expect(buildCreateRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"), "record GUID was not a 36 character guid")
+			})
+			it("has a State of \"STAGING\"", func() {
+				g.Expect(buildCreateRecord.State).To(Equal(buildStagingState))
+			})
+			it("has a CreatedAt that makes sense", func() {
+				createdAt, err := time.Parse(time.RFC3339, buildCreateRecord.CreatedAt)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(createdAt).To(BeTemporally("~", time.Now(), time.Second))
+			})
+			it("has a UpdatedAt that makes sense", func() {
+				createdAt, err := time.Parse(time.RFC3339, buildCreateRecord.UpdatedAt)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(createdAt).To(BeTemporally("~", time.Now(), time.Second))
+			})
+			it("has an empty StagingErrorMsg", func() {
+				g.Expect(buildCreateRecord.StagingErrorMsg).To(BeEmpty())
+			})
+			// TODO: StagingMemoryMB
+			// TODO: StagingDiskMB
+			// TODO: Lifecycle
+			// TODO: PackageGUID
+			// TODO: DropletGUID
+			// TODO: AppGUID
+			// TODO: Labels
+			// TODO: Annotations
+			
+		})
+
+		it("should eventually create a new Build CR", func() {
+			cfBuildLookupKey := types.NamespacedName{Name: buildCreateRecord.GUID, Namespace: spaceGUID}
+			createdCFBuild := new(workloadsv1alpha1.CFBuild)
+			g.Eventually(func() bool {
+				err := k8sClient.Get(context.Background(), cfBuildLookupKey, createdCFBuild)
+				return err == nil
+			}, 5*time.Second, 250*time.Millisecond).Should(BeTrue(), "A CFBuild CR was not eventually created")
+		})
+
+	})
+}
+
+func cleanupBuild(ctx context.Context, k8sClient client.Client, buildGUID, namespace string) error {
+	cfBuild := workloadsv1alpha1.CFBuild{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      buildGUID,
+			Namespace: namespace,
+		},
+	}
+	return k8sClient.Delete(ctx, &cfBuild)
 }
