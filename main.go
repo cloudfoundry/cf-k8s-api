@@ -90,6 +90,7 @@ func main() {
 			ctrl.Log.WithName("BuildHandler"),
 			config.ServerURL,
 			&repositories.BuildRepo{},
+			&repositories.PackageRepo{},
 			repositories.BuildClient,
 			k8sClientConfig,
     ),

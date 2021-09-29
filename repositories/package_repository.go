@@ -26,6 +26,7 @@ type PackageCreateMessage struct {
 
 type PackageRecord struct {
 	GUID      string
+	SpaceGUID string
 	Type      string
 	AppGUID   string
 	State     string

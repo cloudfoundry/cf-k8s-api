@@ -22,6 +22,12 @@ const (
 	SucceededConditionType = "Succeeded"
 )
 
+type BuildCreateMessage struct {
+	AppGUID     string
+	PackageGUID string
+	SpaceGUID   string
+}
+
 type BuildRecord struct {
 	GUID            string
 	State           string
@@ -118,4 +124,8 @@ func (b *BuildRepo) filterBuildsByMetadataName(builds []workloadsv1alpha1.CFBuil
 		}
 	}
 	return filtered
+}
+
+func (b *BuildRepo) CreateBuild(ctx context.Context, k8sClient client.Client, message BuildCreateMessage) (BuildRecord, error) {
+	return BuildRecord{}, nil
 }
