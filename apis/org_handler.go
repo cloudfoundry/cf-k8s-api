@@ -14,15 +14,13 @@ import (
 )
 
 const (
-	OrgListEndpoint   = "/v3/organizations"
-	SpaceListEndpoint = "/v3/spaces"
+	OrgListEndpoint = "/v3/organizations"
 )
 
 //counterfeiter:generate -o fake -fake-name CFOrgRepository . CFOrgRepository
 
 type CFOrgRepository interface {
 	FetchOrgs(context.Context, []string) ([]repositories.OrgRecord, error)
-	FetchSpaces(context.Context, []string, []string) ([]repositories.SpaceRecord, error)
 }
 
 type OrgHandler struct {
@@ -60,36 +58,6 @@ func (h *OrgHandler) OrgListHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(orgList)
 }
 
-func (h *OrgHandler) SpaceListHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	w.Header().Set("Content-Type", "application/json")
-
-	orgUIDs := parseCommaSeparatedList(r.URL.Query().Get("organization_guids"))
-	names := parseCommaSeparatedList(r.URL.Query().Get("names"))
-
-	spaces, err := h.orgRepo.FetchSpaces(ctx, orgUIDs, names)
-	if err != nil {
-		writeUnknownErrorResponse(w)
-
-		return
-	}
-
-	spaceList := presenter.ForSpaceList(spaces, h.apiBaseURL)
-	json.NewEncoder(w).Encode(spaceList)
-}
-
 func (h *OrgHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(OrgListEndpoint).Methods("GET").HandlerFunc(h.OrgListHandler)
-	router.Path(SpaceListEndpoint).Methods("GET").HandlerFunc(h.SpaceListHandler)
-}
-
-func parseCommaSeparatedList(list string) []string {
-	var elements []string
-	for _, element := range strings.Split(list, ",") {
-		if element != "" {
-			elements = append(elements, element)
-		}
-	}
-
-	return elements
 }

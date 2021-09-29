@@ -99,6 +99,10 @@ func main() {
 			repositories.NewOrgRepo(config.RootNamespace, privilegedClient),
 			config.ServerURL,
 		),
+		apis.NewSpaceHandler(
+			repositories.NewOrgRepo(config.RootNamespace, privilegedClient),
+			config.ServerURL,
+		),
 	}
 
 	router := mux.NewRouter()
