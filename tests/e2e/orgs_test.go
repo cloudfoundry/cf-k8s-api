@@ -4,37 +4,21 @@
 package e2e_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	. "github.com/onsi/gomega/gstruct"
 
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
-
-type hierarchicalNamespace struct {
-	label         string
-	generatedName string
-	createdAt     string
-	uid           string
-	children      []hierarchicalNamespace
-}
 
 var _ = Describe("Orgs", func() {
 	Describe("Listing Orgs", func() {
@@ -144,31 +128,6 @@ var _ = Describe("Orgs", func() {
 	})
 })
 
-func waitForSubnamespaceAnchor(parent, name string) {
-	Eventually(func() (bool, error) {
-		anchor := &hnsv1alpha2.SubnamespaceAnchor{}
-		err := k8sClient.Get(context.Background(), client.ObjectKey{Namespace: parent, Name: name}, anchor)
-		if err != nil {
-			return false, err
-		}
-
-		return anchor.Status.State == hnsv1alpha2.Ok, nil
-	}, "30s").Should(BeTrue())
-}
-
-func waitForNamespaceDeletion(ns string) {
-	Eventually(func() (bool, error) {
-		err := k8sClient.Get(context.Background(), client.ObjectKey{Name: ns}, &corev1.Namespace{})
-		if errors.IsNotFound(err) {
-			return true, nil
-		}
-
-		fmt.Printf("err = %+v\n", err)
-
-		return false, err
-	}, "30s").Should(BeTrue())
-}
-
 func getOrgsFn(names ...string) func() ([]presenter.OrgResponse, error) {
 	return func() ([]presenter.OrgResponse, error) {
 		orgsUrl := apiServerRoot + "/v3/organizations"
@@ -206,70 +165,4 @@ func getOrgsFn(names ...string) func() ([]presenter.OrgResponse, error) {
 
 		return orgList.Resources, nil
 	}
-}
-
-func getSpaces() (string, error) {
-	return getSpacesWithQuery(nil)
-}
-
-func getSpacesWithQuery(query map[string]string) (string, error) {
-	spacesUrl, err := url.Parse(apiServerRoot)
-	if err != nil {
-		return "", err
-	}
-	spacesUrl.Path = "/v3/spaces"
-	values := url.Values{}
-	for key, val := range query {
-		values.Set(key, val)
-	}
-	spacesUrl.RawQuery = values.Encode()
-
-	resp, err := http.Get(spacesUrl.String())
-	if err != nil {
-		return "", err
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("bad status: %d", resp.StatusCode)
-	}
-
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	return string(bodyBytes), nil
-}
-
-func createHierarchicalNamespace(parentName, cfName, labelKey string) hierarchicalNamespace {
-	ctx := context.Background()
-
-	anchor := &hnsv1alpha2.SubnamespaceAnchor{}
-	anchor.GenerateName = cfName
-	anchor.Namespace = parentName
-	anchor.Labels = map[string]string{labelKey: cfName}
-	err := k8sClient.Create(ctx, anchor)
-	Expect(err).NotTo(HaveOccurred())
-
-	return hierarchicalNamespace{
-		label:         cfName,
-		generatedName: anchor.Name,
-		uid:           string(anchor.UID),
-		createdAt:     anchor.CreationTimestamp.Time.UTC().Format(time.RFC3339),
-	}
-}
-
-func deleteSubnamespace(parent, name string) {
-	ctx := context.Background()
-
-	anchor := hnsv1alpha2.SubnamespaceAnchor{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: parent,
-			Name:      name,
-		},
-	}
-	err := k8sClient.Delete(ctx, &anchor)
-	Expect(err).NotTo(HaveOccurred())
 }

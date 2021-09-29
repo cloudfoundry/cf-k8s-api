@@ -24,21 +24,6 @@ type CFOrgRepository struct {
 		result1 []repositories.OrgRecord
 		result2 error
 	}
-	FetchSpacesStub        func(context.Context, []string, []string) ([]repositories.SpaceRecord, error)
-	fetchSpacesMutex       sync.RWMutex
-	fetchSpacesArgsForCall []struct {
-		arg1 context.Context
-		arg2 []string
-		arg3 []string
-	}
-	fetchSpacesReturns struct {
-		result1 []repositories.SpaceRecord
-		result2 error
-	}
-	fetchSpacesReturnsOnCall map[int]struct {
-		result1 []repositories.SpaceRecord
-		result2 error
-	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -113,89 +98,11 @@ func (fake *CFOrgRepository) FetchOrgsReturnsOnCall(i int, result1 []repositorie
 	}{result1, result2}
 }
 
-func (fake *CFOrgRepository) FetchSpaces(arg1 context.Context, arg2 []string, arg3 []string) ([]repositories.SpaceRecord, error) {
-	var arg2Copy []string
-	if arg2 != nil {
-		arg2Copy = make([]string, len(arg2))
-		copy(arg2Copy, arg2)
-	}
-	var arg3Copy []string
-	if arg3 != nil {
-		arg3Copy = make([]string, len(arg3))
-		copy(arg3Copy, arg3)
-	}
-	fake.fetchSpacesMutex.Lock()
-	ret, specificReturn := fake.fetchSpacesReturnsOnCall[len(fake.fetchSpacesArgsForCall)]
-	fake.fetchSpacesArgsForCall = append(fake.fetchSpacesArgsForCall, struct {
-		arg1 context.Context
-		arg2 []string
-		arg3 []string
-	}{arg1, arg2Copy, arg3Copy})
-	stub := fake.FetchSpacesStub
-	fakeReturns := fake.fetchSpacesReturns
-	fake.recordInvocation("FetchSpaces", []interface{}{arg1, arg2Copy, arg3Copy})
-	fake.fetchSpacesMutex.Unlock()
-	if stub != nil {
-		return stub(arg1, arg2, arg3)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *CFOrgRepository) FetchSpacesCallCount() int {
-	fake.fetchSpacesMutex.RLock()
-	defer fake.fetchSpacesMutex.RUnlock()
-	return len(fake.fetchSpacesArgsForCall)
-}
-
-func (fake *CFOrgRepository) FetchSpacesCalls(stub func(context.Context, []string, []string) ([]repositories.SpaceRecord, error)) {
-	fake.fetchSpacesMutex.Lock()
-	defer fake.fetchSpacesMutex.Unlock()
-	fake.FetchSpacesStub = stub
-}
-
-func (fake *CFOrgRepository) FetchSpacesArgsForCall(i int) (context.Context, []string, []string) {
-	fake.fetchSpacesMutex.RLock()
-	defer fake.fetchSpacesMutex.RUnlock()
-	argsForCall := fake.fetchSpacesArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
-}
-
-func (fake *CFOrgRepository) FetchSpacesReturns(result1 []repositories.SpaceRecord, result2 error) {
-	fake.fetchSpacesMutex.Lock()
-	defer fake.fetchSpacesMutex.Unlock()
-	fake.FetchSpacesStub = nil
-	fake.fetchSpacesReturns = struct {
-		result1 []repositories.SpaceRecord
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *CFOrgRepository) FetchSpacesReturnsOnCall(i int, result1 []repositories.SpaceRecord, result2 error) {
-	fake.fetchSpacesMutex.Lock()
-	defer fake.fetchSpacesMutex.Unlock()
-	fake.FetchSpacesStub = nil
-	if fake.fetchSpacesReturnsOnCall == nil {
-		fake.fetchSpacesReturnsOnCall = make(map[int]struct {
-			result1 []repositories.SpaceRecord
-			result2 error
-		})
-	}
-	fake.fetchSpacesReturnsOnCall[i] = struct {
-		result1 []repositories.SpaceRecord
-		result2 error
-	}{result1, result2}
-}
-
 func (fake *CFOrgRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.fetchOrgsMutex.RLock()
 	defer fake.fetchOrgsMutex.RUnlock()
-	fake.fetchSpacesMutex.RLock()
-	defer fake.fetchSpacesMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
