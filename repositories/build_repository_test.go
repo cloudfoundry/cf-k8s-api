@@ -19,6 +19,7 @@ import (
 
 var _ = SuiteDescribe("Build Repository FetchBuild", testFetchBuild)
 var _ = SuiteDescribe("Build Repository CreateBuild", testCreateBuild)
+
 func testFetchBuild(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
 
@@ -368,22 +369,29 @@ func testFetchBuild(t *testing.T, when spec.G, it spec.S) {
 	})
 }
 
-
 func testCreateBuild(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
 
 	const (
-		appGUID = "the-app-guid"
+		appGUID     = "the-app-guid"
 		packageGUID = "the-package-guid"
 
 		buildStagingState = "STAGING"
+
+		buildLifecycleType = "buildpack"
+		buildStack         = "cflinuxfs3"
+
+		stagingMemory = 1024
+		stagingDisk   = 2048
 	)
 
 	var (
-		buildRepo *BuildRepo
-		client client.Client
-		buildCreateMsg BuildCreateMessage
-		spaceGUID string
+		buildRepo              *BuildRepo
+		client                 client.Client
+		buildCreateLabels      map[string]string
+		buildCreateAnnotations map[string]string
+		buildCreateMsg         BuildCreateMessage
+		spaceGUID              string
 	)
 
 	it.Before(func() {
@@ -399,12 +407,24 @@ func testCreateBuild(t *testing.T, when spec.G, it spec.S) {
 			k8sClient.Create(beforeCtx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: spaceGUID}}),
 		).To(Succeed())
 
+		buildCreateLabels = nil
+		buildCreateAnnotations = nil
 		buildCreateMsg = BuildCreateMessage{
-			AppGUID:     appGUID,
-			PackageGUID: packageGUID,
-			SpaceGUID:   spaceGUID,
+			AppGUID:         appGUID,
+			PackageGUID:     packageGUID,
+			SpaceGUID:       spaceGUID,
+			StagingMemoryMB: stagingMemory,
+			StagingDiskMB:   stagingDisk,
+			Lifecycle: Lifecycle{
+				Type: buildLifecycleType,
+				Data: LifecycleData{
+					Buildpacks: []string{},
+					Stack:      buildStack,
+				},
+			},
+			Labels:      buildCreateLabels,
+			Annotations: buildCreateAnnotations,
 		}
-
 
 	})
 
@@ -412,7 +432,7 @@ func testCreateBuild(t *testing.T, when spec.G, it spec.S) {
 
 		var (
 			buildCreateRecord BuildRecord
-			buildCreateErr error
+			buildCreateErr    error
 		)
 
 		it.Before(func() {
@@ -422,9 +442,7 @@ func testCreateBuild(t *testing.T, when spec.G, it spec.S) {
 
 		it.After(func() {
 			afterCtx := context.Background()
-			g.Eventually(func() error {
-				return cleanupBuild(afterCtx, client, buildCreateRecord.GUID, spaceGUID)
-			}, 5*time.Second, 250*time.Millisecond).Should(Succeed())
+			cleanupBuild(afterCtx, client, buildCreateRecord.GUID, spaceGUID)
 		})
 
 		it("does not return an error", func() {
@@ -454,15 +472,31 @@ func testCreateBuild(t *testing.T, when spec.G, it spec.S) {
 			it("has an empty StagingErrorMsg", func() {
 				g.Expect(buildCreateRecord.StagingErrorMsg).To(BeEmpty())
 			})
-			// TODO: StagingMemoryMB
-			// TODO: StagingDiskMB
-			// TODO: Lifecycle
-			// TODO: PackageGUID
-			// TODO: DropletGUID
-			// TODO: AppGUID
-			// TODO: Labels
-			// TODO: Annotations
-			
+			it("has StagingMemoryMB that matches the CreateMessage", func() {
+				g.Expect(buildCreateRecord.StagingMemoryMB).To(Equal(stagingMemory))
+			})
+			it("has StagingDiskMB that matches the CreateMessage", func() {
+				g.Expect(buildCreateRecord.StagingDiskMB).To(Equal(stagingDisk))
+			})
+			it("has Lifecycle fields that match the CreateMessage", func() {
+				g.Expect(buildCreateRecord.Lifecycle.Type).To(Equal(buildLifecycleType))
+				g.Expect(buildCreateRecord.Lifecycle.Data.Stack).To(Equal(buildStack))
+			})
+			it("has a PackageGUID that matches the CreateMessage", func() {
+				g.Expect(buildCreateRecord.PackageGUID).To(Equal(packageGUID))
+			})
+			it("has no DropletGUID", func() {
+				g.Expect(buildCreateRecord.DropletGUID).To(BeEmpty())
+			})
+			it("has an AppGUID that matches the CreateMessage", func() {
+				g.Expect(buildCreateRecord.AppGUID).To(Equal(appGUID))
+			})
+			it("has Labels that match the CreateMessage", func() {
+				g.Expect(buildCreateRecord.Labels).To(Equal(buildCreateLabels))
+			})
+			it("has Annotations that match the CreateMessage", func() {
+				g.Expect(buildCreateRecord.Annotations).To(Equal(buildCreateAnnotations))
+			})
 		})
 
 		it("should eventually create a new Build CR", func() {

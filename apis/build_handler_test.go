@@ -1,6 +1,5 @@
 package apis_test
 
-
 import (
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 	"errors"
@@ -369,10 +368,12 @@ func testBuildCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		appGUID     = "the-app-guid"
 		buildGUID   = "test-build-guid"
 
-		stagingMem  = 1024
-		stagingDisk = 2048
-		spaceGUID   = "the-space-guid"
-		validBody   = `{
+		expectedStagingMem     = 1024
+		expectedStagingDisk    = 1024
+		expectedLifecycleType  = "buildpack"
+		expectedLifecycleStack = "cflinuxfs3"
+		spaceGUID              = "the-space-guid"
+		validBody              = `{
 			"package": {
 				"guid": "` + packageGUID + `"
         	}
@@ -381,7 +382,7 @@ func testBuildCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		updatedAt = "1906-04-18T13:12:01Z"
 	)
 
-	//getRR := func() *httptest.ResponseRecorder { return rr }
+	getRR := func() *httptest.ResponseRecorder { return rr }
 
 	it.Before(func() {
 		rr = httptest.NewRecorder()
@@ -404,13 +405,13 @@ func testBuildCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			State:           "STAGING",
 			CreatedAt:       createdAt,
 			UpdatedAt:       updatedAt,
-			StagingMemoryMB: stagingMem,
-			StagingDiskMB:   stagingDisk,
+			StagingMemoryMB: expectedStagingMem,
+			StagingDiskMB:   expectedStagingDisk,
 			Lifecycle: repositories.Lifecycle{
-				Type: "buildpack",
+				Type: expectedLifecycleType,
 				Data: repositories.LifecycleData{
 					Buildpacks: []string{},
-					Stack:      "",
+					Stack:      expectedLifecycleStack,
 				},
 			},
 			PackageGUID: packageGUID,
@@ -447,15 +448,35 @@ func testBuildCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			g.Expect(clientBuilder.CallCount()).To(Equal(1))
 		})
 
-		it("creates a CFBuild", func() {
-			g.Expect(buildRepo.CreateBuildCallCount()).To(Equal(1))
-			_, _, actualCreate := buildRepo.CreateBuildArgsForCall(0)
-			g.Expect(actualCreate).To(Equal(repositories.BuildCreateMessage{
-				// TODO: fill these in!
-				PackageGUID: packageGUID,
-				AppGUID:     appGUID,
-				SpaceGUID:   spaceGUID,
-			}))
+		when("examining the BuildCreate message", func() {
+			var (
+				actualCreate repositories.BuildCreateMessage
+			)
+			it.Before(func() {
+				g.Expect(buildRepo.CreateBuildCallCount()).To(Equal(1), "buildRepo CreateBuild was not called")
+				_, _, actualCreate = buildRepo.CreateBuildArgsForCall(0)
+			})
+			it("has the same SpaceGUID as the package", func() {
+				g.Expect(actualCreate.SpaceGUID).To(Equal(spaceGUID))
+			})
+			it("has the same AppGUID as the package", func() {
+				g.Expect(actualCreate.AppGUID).To(Equal(appGUID))
+			})
+			it("has the same PackageGUID as the request", func() {
+				g.Expect(actualCreate.PackageGUID).To(Equal(packageGUID))
+			})
+			it("fills in values for StagingMemoryMB", func() {
+				g.Expect(actualCreate.StagingMemoryMB).To(Equal(expectedStagingMem))
+
+			})
+			it("fills in values for StagingDiskMB", func() {
+				g.Expect(actualCreate.StagingDiskMB).To(Equal(expectedStagingDisk))
+			})
+			it("fills in values for Lifecycle", func() {
+				g.Expect(actualCreate.Lifecycle.Type).To(Equal(expectedLifecycleType))
+				g.Expect(actualCreate.Lifecycle.Data.Buildpacks).To(Equal([]string{}))
+				g.Expect(actualCreate.Lifecycle.Data.Stack).To(Equal(expectedLifecycleStack))
+			})
 		})
 
 		it("returns the Build in the response", func() {
@@ -465,14 +486,14 @@ func testBuildCreateHandler(t *testing.T, when spec.G, it spec.S) {
 					"updated_at": "`+updatedAt+`",
 					"created_by": {},
 					"state": "STAGING",
-					"staging_memory_in_mb": `+fmt.Sprint(stagingMem)+`,
-					"staging_disk_in_mb": `+fmt.Sprint(stagingDisk)+`,
+					"staging_memory_in_mb": `+fmt.Sprint(expectedStagingMem)+`,
+					"staging_disk_in_mb": `+fmt.Sprint(expectedStagingDisk)+`,
 					"error": null,
 					"lifecycle": {
-						"type": "buildpack",
+						"type": "`+expectedLifecycleType+`",
 						"data": {
 							"buildpacks": [],
-							"stack": ""
+							"stack": "`+expectedLifecycleStack+`"
 						}
 					},
 					"package": {
@@ -502,7 +523,6 @@ func testBuildCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
-	/*
 	when("the package doesn't exist", func() {
 		it.Before(func() {
 			packageRepo.FetchPackageReturns(repositories.PackageRecord{}, repositories.NotFoundError{})
@@ -521,14 +541,14 @@ func testBuildCreateHandler(t *testing.T, when spec.G, it spec.S) {
 
 		it("responds with error code", func() {
 			g.Expect(rr.Body.String()).To(MatchJSON(`{
-				"errors": [
-					{
-						"code": 10008,
-						"title": "CF-UnprocessableEntity",
-						"detail": "Package is invalid. Ensure it exists and you have access to it."
-					}
-				]
-			}`))
+					"errors": [
+						{
+							"code": 10008,
+							"title": "CF-UnprocessableEntity",
+							"detail": "Unable to use package. Ensure that the package exists and you have access to it."
+						}
+					]
+				}`))
 		})
 
 		it("doesn't create a build", func() {
@@ -550,6 +570,28 @@ func testBuildCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
+	when("building the k8s client errors", func() {
+		it.Before(func() {
+			clientBuilder.Returns(nil, errors.New("boom"))
+			makePostRequest(validBody)
+		})
+
+		itRespondsWithUnknownError(it, g, getRR)
+
+		it("doesn't create a Build", func() {
+			g.Expect(buildRepo.CreateBuildCallCount()).To(Equal(0))
+		})
+	})
+
+	when("creating the build in the repo errors", func() {
+		it.Before(func() {
+			buildRepo.CreateBuildReturns(repositories.BuildRecord{}, errors.New("boom"))
+			makePostRequest(validBody)
+		})
+
+		itRespondsWithUnknownError(it, g, getRR)
+	})
+
 	when("the JSON body is invalid", func() {
 		it.Before(func() {
 			makePostRequest(`{`)
@@ -566,40 +608,15 @@ func testBuildCreateHandler(t *testing.T, when spec.G, it spec.S) {
 
 		it("has the expected error response body", func() {
 			g.Expect(rr.Body.String()).To(MatchJSON(`{
-					"errors": [
-						{
-							"title": "CF-MessageParseError",
-							"detail": "Request invalid due to parse error: invalid request body",
-							"code": 1001
-						}
-					]
-				}`), "Response body matches response:")
+						"errors": [
+							{
+								"title": "CF-MessageParseError",
+								"detail": "Request invalid due to parse error: invalid request body",
+								"code": 1001
+							}
+						]
+					}`), "Response body matches response:")
 		})
 	})
-
-	when("building the k8s client errors", func() {
-		it.Before(func() {
-			clientBuilder.Returns(nil, errors.New("boom"))
-			makePostRequest(validBody)
-		})
-
-		itRespondsWithUnknownError(it, g, getRR)
-
-		it("doesn't create a Package", func() {
-			g.Expect(buildRepo.CreateBuildCallCount()).To(Equal(0))
-		})
-	})
-
-	when("creating the build in the repo errors", func() {
-		it.Before(func() {
-			buildRepo.CreateBuildReturns(repositories.BuildRecord{}, errors.New("boom"))
-			makePostRequest(validBody)
-		})
-
-		itRespondsWithUnknownError(it, g, getRR)
-	})
-*/
 
 }
-
-

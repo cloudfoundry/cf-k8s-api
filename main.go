@@ -1,6 +1,7 @@
 package main
 
 import (
+	"code.cloudfoundry.org/cf-k8s-api/payloads"
 	"fmt"
 	"log"
 	"net/http"
@@ -41,7 +42,7 @@ func main() {
 		errorMessage := fmt.Sprintf("Config could not be read: %v", err)
 		panic(errorMessage)
 	}
-
+	payloads.DefaultLifecycleConfig = config.DefaultLifecycleConfig
 	k8sClientConfig := ctrl.GetConfigOrDie()
 
 	zapOpts := zap.Options{

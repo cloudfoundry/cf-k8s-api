@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	BuildGetEndpoint = "/v3/builds/{guid}"
+	BuildGetEndpoint    = "/v3/builds/{guid}"
 	BuildCreateEndpoint = "/v3/builds"
 )
 
@@ -97,14 +97,12 @@ func (h *BuildHandler) buildCreateHandler(w http.ResponseWriter, req *http.Reque
 	var payload payloads.BuildCreate
 	rme := DecodeAndValidatePayload(req, &payload)
 	if rme != nil {
-		panic("TODO")
 		writeErrorResponse(w, rme)
 		return
 	}
 
 	client, err := h.buildClient(h.k8sConfig)
 	if err != nil {
-		panic("TODO")
 		h.logger.Info("Error building k8s client", "error", err.Error())
 		writeUnknownErrorResponse(w)
 		return
@@ -112,11 +110,10 @@ func (h *BuildHandler) buildCreateHandler(w http.ResponseWriter, req *http.Reque
 
 	packageRecord, err := h.packageRepo.FetchPackage(req.Context(), client, payload.Package.GUID)
 	if err != nil {
-		panic("TODO")
 		switch err.(type) {
 		case repositories.NotFoundError:
 			h.logger.Info("Package not found", "Package GUID", payload.Package.GUID)
-			writeUnprocessableEntityError(w, "Package is invalid. Ensure it exists and you have access to it.")
+			writeUnprocessableEntityError(w, "Unable to use package. Ensure that the package exists and you have access to it.")
 		default:
 			h.logger.Info("Error finding Package", "Package GUID", payload.Package.GUID)
 			writeUnknownErrorResponse(w)
@@ -124,16 +121,11 @@ func (h *BuildHandler) buildCreateHandler(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	buildCreateMessage := repositories.BuildCreateMessage{
-		AppGUID:     packageRecord.AppGUID,
-		PackageGUID: packageRecord.GUID,
-		SpaceGUID:   packageRecord.SpaceGUID,
-	}
-	
+	buildCreateMessage := payload.ToMessage(packageRecord.AppGUID, packageRecord.SpaceGUID)
+
 	record, err := h.buildRepo.CreateBuild(req.Context(), client, buildCreateMessage)
 	if err != nil {
-		panic("TODO")
-		h.logger.Info("Error creating package with repository", "error", err.Error())
+		h.logger.Info("Error creating build with repository", "error", err.Error())
 		writeUnknownErrorResponse(w)
 		return
 	}
@@ -147,7 +139,6 @@ func (h *BuildHandler) buildCreateHandler(w http.ResponseWriter, req *http.Reque
 		return
 	}
 }
-
 
 func (h *BuildHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(BuildGetEndpoint).Methods("GET").HandlerFunc(h.buildGetHandler)

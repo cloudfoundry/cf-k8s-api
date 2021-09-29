@@ -81,6 +81,7 @@ func (r *PackageRepo) cfPackageToPackageRecord(cfPackage workloadsv1alpha1.CFPac
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfPackage.ObjectMeta)
 	return PackageRecord{
 		GUID:      cfPackage.ObjectMeta.Name,
+		SpaceGUID: cfPackage.ObjectMeta.Namespace,
 		Type:      string(cfPackage.Spec.Type),
 		AppGUID:   cfPackage.Spec.AppRef.Name,
 		State:     "AWAITING_UPLOAD",
