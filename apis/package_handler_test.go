@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-containerregistry/pkg/v1/remote"
+
 	. "code.cloudfoundry.org/cf-k8s-api/apis"
 	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
@@ -78,6 +80,7 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		packageRepo.CreatePackageReturns(repositories.PackageRecord{
 			Type:      "bits",
 			AppGUID:   appGUID,
+			SpaceGUID: spaceGUID,
 			GUID:      packageGUID,
 			State:     "AWAITING_UPLOAD",
 			CreatedAt: createdAt,
@@ -91,14 +94,7 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 
 		clientBuilder = new(fake.ClientBuilder)
 
-		apiHandler := NewPackageHandler(
-			logf.Log.WithName(testPackageHandlerLoggerName),
-			defaultServerURL,
-			packageRepo,
-			appRepo,
-			clientBuilder.Spy,
-			&rest.Config{},
-		)
+		apiHandler := NewPackageHandler(logf.Log.WithName(testPackageHandlerLoggerName), defaultServerURL, packageRepo, appRepo, clientBuilder.Spy, nil, nil, &rest.Config{}, "", "")
 		apiHandler.RegisterRoutes(router)
 	})
 
@@ -374,35 +370,44 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 func testPackageUploadHandler(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
 	var (
-		rr            *httptest.ResponseRecorder
-		packageRepo   *fake.CFPackageRepository
-		appRepo       *fake.CFAppRepository
-		clientBuilder *fake.ClientBuilder
-		router        *mux.Router
+		rr                *httptest.ResponseRecorder
+		packageRepo       *fake.CFPackageRepository
+		appRepo           *fake.CFAppRepository
+		uploadImageSource *fake.SourceImageUploader
+		buildRegistryAuth *fake.RegistryAuthBuilder
+		credentialOption  remote.Option
+		clientBuilder     *fake.ClientBuilder
+		router            *mux.Router
 	)
 
 	getRR := func() *httptest.ResponseRecorder { return rr }
 
 	makeUploadRequest := func(packageGUID string, file io.Reader) {
 		var b bytes.Buffer
-		w := multipart.NewWriter(&b)
-		bitsWriter, err := w.CreateFormFile("bits", "unused.zip")
+		writer := multipart.NewWriter(&b)
+		part, err := writer.CreateFormFile("bits", "unused.zip")
 		g.Expect(err).NotTo(HaveOccurred())
 
-		_, err = io.Copy(bitsWriter, file)
+		_, err = io.Copy(part, file)
 		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(writer.Close()).To(Succeed())
 
 		req, err := http.NewRequest("POST", fmt.Sprintf("/v3/packages/%s/upload", packageGUID), &b)
 		g.Expect(err).NotTo(HaveOccurred())
+		req.Header.Add("Content-Type", writer.FormDataContentType())
 
 		router.ServeHTTP(rr, req)
 	}
 
 	const (
-		packageGUID = "the-package-guid"
-		appGUID     = "the-app-guid"
-		createdAt   = "1906-04-18T13:12:00Z"
-		updatedAt   = "1906-04-18T13:12:01Z"
+		packageGUID                = "the-package-guid"
+		appGUID                    = "the-app-guid"
+		createdAt                  = "1906-04-18T13:12:00Z"
+		updatedAt                  = "1906-04-18T13:12:01Z"
+		imageRefWithDigest         = "some-org/the-package-guid@SHA256:some-sha-256"
+		srcFileContents            = "the-src-file-contents"
+		packageRegistryBase        = "some-org"
+		packageImagePullSecretName = "package-image-pull-secret"
 	)
 
 	it.Before(func() {
@@ -413,14 +418,30 @@ func testPackageUploadHandler(t *testing.T, when spec.G, it spec.S) {
 		packageRepo.FetchPackageReturns(repositories.PackageRecord{
 			Type:      "bits",
 			AppGUID:   appGUID,
+			SpaceGUID: spaceGUID,
+			GUID:      packageGUID,
+			State:     "AWAITING_UPLOAD",
+			CreatedAt: createdAt,
+			UpdatedAt: updatedAt,
+		}, nil)
+		packageRepo.UpdatePackageSourceReturns(repositories.PackageRecord{
+			Type:      "bits",
+			AppGUID:   appGUID,
+			SpaceGUID: spaceGUID,
 			GUID:      packageGUID,
 			State:     "PROCESSING_UPLOAD",
 			CreatedAt: createdAt,
 			UpdatedAt: updatedAt,
 		}, nil)
 
+		uploadImageSource = new(fake.SourceImageUploader)
+		uploadImageSource.Returns(imageRefWithDigest, nil)
+
 		appRepo = new(fake.CFAppRepository)
 		clientBuilder = new(fake.ClientBuilder)
+		credentialOption = remote.WithUserAgent("for-test-use-only") // real one should have credentials
+		buildRegistryAuth = new(fake.RegistryAuthBuilder)
+		buildRegistryAuth.Returns(credentialOption, nil)
 
 		apiHandler := NewPackageHandler(
 			logf.Log.WithName(testPackageHandlerLoggerName),
@@ -428,14 +449,19 @@ func testPackageUploadHandler(t *testing.T, when spec.G, it spec.S) {
 			packageRepo,
 			appRepo,
 			clientBuilder.Spy,
-			&rest.Config{})
+			uploadImageSource.Spy,
+			buildRegistryAuth.Spy,
+			&rest.Config{},
+			packageRegistryBase,
+			packageImagePullSecretName,
+		)
 
 		apiHandler.RegisterRoutes(router)
 	})
 
 	when("on the happy path", func() {
 		it.Before(func() {
-			makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
+			makeUploadRequest(packageGUID, strings.NewReader(srcFileContents))
 		})
 
 		it("returns status 200", func() {
@@ -456,6 +482,24 @@ func testPackageUploadHandler(t *testing.T, when spec.G, it spec.S) {
 
 			_, _, actualPackageGUID := packageRepo.FetchPackageArgsForCall(0)
 			g.Expect(actualPackageGUID).To(Equal(packageGUID))
+		})
+
+		it("uploads the image source", func() {
+			g.Expect(uploadImageSource.CallCount()).To(Equal(1))
+			imageRef, srcFile, actualCredentialOption := uploadImageSource.ArgsForCall(0)
+			g.Expect(imageRef).To(Equal(fmt.Sprintf("%s/%s", packageRegistryBase, packageGUID)))
+			actualSrcContents, err := io.ReadAll(srcFile)
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(string(actualSrcContents)).To(Equal(srcFileContents))
+			g.Expect(actualCredentialOption).NotTo(BeNil())
+		})
+
+		it("saves the uploaded image reference on the package", func() {
+			g.Expect(packageRepo.UpdatePackageSourceCallCount()).To(Equal(1))
+			_, _, message := packageRepo.UpdatePackageSourceArgsForCall(0)
+			g.Expect(message.GUID).To(Equal(packageGUID))
+			g.Expect(message.ImageRef).To(Equal(imageRefWithDigest))
+			g.Expect(message.RegistrySecretName).To(Equal(packageImagePullSecretName))
 		})
 
 		it("returns a JSON body", func() {
@@ -507,6 +551,14 @@ func testPackageUploadHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		itRespondsWithNotFound(it, g, "Package not found", getRR)
+
+		it("doesn't build an image from the source", func() {
+			g.Expect(uploadImageSource.CallCount()).To(Equal(0))
+		})
+
+		it("doesn't update any Packages", func() {
+			g.Expect(packageRepo.UpdatePackageSourceCallCount()).To(Equal(0))
+		})
 	})
 
 	when("building the client errors", func() {
@@ -517,11 +569,112 @@ func testPackageUploadHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		itRespondsWithUnknownError(it, g, getRR)
+
+		it("doesn't build an image from the source", func() {
+			g.Expect(uploadImageSource.CallCount()).To(Equal(0))
+		})
+
+		it("doesn't update any Packages", func() {
+			g.Expect(packageRepo.UpdatePackageSourceCallCount()).To(Equal(0))
+		})
 	})
 
 	when("fetching the package errors", func() {
 		it.Before(func() {
 			packageRepo.FetchPackageReturns(repositories.PackageRecord{}, errors.New("boom"))
+
+			makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
+		})
+
+		itRespondsWithUnknownError(it, g, getRR)
+
+		it("doesn't build an image from the source", func() {
+			g.Expect(uploadImageSource.CallCount()).To(Equal(0))
+		})
+
+		it("doesn't update any Packages", func() {
+			g.Expect(packageRepo.UpdatePackageSourceCallCount()).To(Equal(0))
+		})
+	})
+
+	when("no bits file is given", func() {
+		it.Before(func() {
+			var b bytes.Buffer
+			writer := multipart.NewWriter(&b)
+			g.Expect(writer.Close()).To(Succeed())
+
+			req, err := http.NewRequest("POST", fmt.Sprintf("/v3/packages/%s/upload", packageGUID), &b)
+			g.Expect(err).NotTo(HaveOccurred())
+			req.Header.Add("Content-Type", writer.FormDataContentType())
+
+			router.ServeHTTP(rr, req)
+		})
+
+		it("returns status 422", func() {
+			g.Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity), "Matching HTTP response code:")
+		})
+
+		it("returns Content-Type as JSON in header", func() {
+			contentTypeHeader := rr.Header().Get("Content-Type")
+			g.Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
+		})
+
+		it("responds with error code", func() {
+			g.Expect(rr.Body.String()).To(MatchJSON(`{
+				"errors": [
+					{
+						"code": 10008,
+						"title": "CF-UnprocessableEntity",
+						"detail": "Upload must include bits"
+					}
+				]
+			}`))
+		})
+
+		it("doesn't build an image from the source", func() {
+			g.Expect(uploadImageSource.CallCount()).To(Equal(0))
+		})
+
+		it("doesn't update any Packages", func() {
+			g.Expect(packageRepo.UpdatePackageSourceCallCount()).To(Equal(0))
+		})
+	})
+
+	when("building the image credentials errors", func() {
+		it.Before(func() {
+			buildRegistryAuth.Returns(nil, errors.New("boom"))
+
+			makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
+		})
+
+		itRespondsWithUnknownError(it, g, getRR)
+
+		it("doesn't build an image from the source", func() {
+			g.Expect(uploadImageSource.CallCount()).To(Equal(0))
+		})
+
+		it("doesn't update any Packages", func() {
+			g.Expect(packageRepo.UpdatePackageSourceCallCount()).To(Equal(0))
+		})
+	})
+
+	when("uploading the source image errors", func() {
+		it.Before(func() {
+			uploadImageSource.Returns("", errors.New("boom"))
+
+			makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
+		})
+
+		itRespondsWithUnknownError(it, g, getRR)
+
+		it("doesn't update any Packages", func() {
+			g.Expect(packageRepo.UpdatePackageSourceCallCount()).To(Equal(0))
+		})
+	})
+
+	when("updating the package source registry errors", func() {
+		it.Before(func() {
+			packageRepo.UpdatePackageSourceReturns(repositories.PackageRecord{}, errors.New("boom"))
 
 			makeUploadRequest(packageGUID, strings.NewReader("the-zip-contents"))
 		})

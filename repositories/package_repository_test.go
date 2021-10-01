@@ -5,13 +5,11 @@ import (
 	"testing"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
-
 	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
+	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-
-	. "github.com/onsi/gomega"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "code.cloudfoundry.org/cf-k8s-api/repositories"
@@ -21,6 +19,7 @@ import (
 
 var _ = SuiteDescribe("Package Repository CreatePackage", testCreatePackage)
 var _ = SuiteDescribe("Package Repository FetchPackage", testFetchPackage)
+var _ = SuiteDescribe("Package Repository UpdatePackageSource", testUpdatePackageSourceRegistry)
 
 func testCreatePackage(t *testing.T, when spec.G, it spec.S) {
 	g := NewWithT(t)
@@ -41,7 +40,7 @@ func testCreatePackage(t *testing.T, when spec.G, it spec.S) {
 		packageRepo = new(PackageRepo)
 
 		var err error
-		client, err = BuildClient(k8sConfig)
+		client, err = BuildCRClient(k8sConfig)
 		g.Expect(err).NotTo(HaveOccurred())
 
 		packageCreate = PackageCreateMessage{
@@ -105,17 +104,14 @@ func testFetchPackage(t *testing.T, when spec.G, it spec.S) {
 	)
 
 	var (
-		testCtx     context.Context
 		packageRepo *PackageRepo
-		client      client.Client
+		testClient  client.Client
 
 		namespace1 *corev1.Namespace
 		namespace2 *corev1.Namespace
 	)
 
 	it.Before(func() {
-		testCtx = context.Background()
-
 		namespace1Name := generateGUID()
 		namespace1 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace1Name}}
 		g.Expect(k8sClient.Create(context.Background(), namespace1)).To(Succeed())
@@ -126,7 +122,7 @@ func testFetchPackage(t *testing.T, when spec.G, it spec.S) {
 
 		packageRepo = new(PackageRepo)
 		var err error
-		client, err = BuildClient(k8sConfig)
+		testClient, err = BuildCRClient(k8sConfig)
 		g.Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -181,7 +177,7 @@ func testFetchPackage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("can fetch the PackageRecord we're looking for", func() {
-			record, err := packageRepo.FetchPackage(testCtx, client, package2GUID)
+			record, err := packageRepo.FetchPackage(context.Background(), testClient, package2GUID)
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(record.GUID).To(Equal(package2GUID))
 			g.Expect(record.Type).To(Equal("bits"))
@@ -196,6 +192,61 @@ func testFetchPackage(t *testing.T, when spec.G, it spec.S) {
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 		})
+	})
+
+	when("table-testing the State field", func() {
+		var (
+			cfPackage *workloadsv1alpha1.CFPackage
+		)
+
+		it.Before(func() {
+			packageGUID := generateGUID()
+			cfPackage = &workloadsv1alpha1.CFPackage{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      packageGUID,
+					Namespace: namespace1.Name,
+				},
+				Spec: workloadsv1alpha1.CFPackageSpec{
+					Type: "bits",
+					AppRef: corev1.LocalObjectReference{
+						Name: appGUID,
+					},
+				},
+			}
+		})
+
+		type testCase struct {
+			description   string
+			expectedState string
+			setupFunc     func(cfPackage2 *workloadsv1alpha1.CFPackage)
+		}
+
+		cases := []testCase{
+			{
+				description:   "no source image is set",
+				expectedState: "AWAITING_UPLOAD",
+				setupFunc:     func(p *workloadsv1alpha1.CFPackage) { p.Spec.Source = workloadsv1alpha1.PackageSource{} },
+			},
+			{
+				description:   "an source image is set",
+				expectedState: "PROCESSING_UPLOAD",
+				setupFunc:     func(p *workloadsv1alpha1.CFPackage) { p.Spec.Source.Registry.Image = "some-org/some-repo" },
+			},
+		}
+
+		for _, tc := range cases {
+			when(tc.description, func() {
+				it("has state "+tc.expectedState, func() {
+					tc.setupFunc(cfPackage)
+					g.Expect(k8sClient.Create(context.Background(), cfPackage)).To(Succeed())
+					defer func() { g.Expect(k8sClient.Delete(context.Background(), cfPackage)).To(Succeed()) }()
+
+					record, err := packageRepo.FetchPackage(context.Background(), testClient, cfPackage.Name)
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(record.State).To(Equal(tc.expectedState))
+				})
+			})
+		}
 	})
 
 	when("duplicate Packages exist across namespaces with the same GUID", func() {
@@ -242,7 +293,7 @@ func testFetchPackage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns an error", func() {
-			_, err := packageRepo.FetchPackage(testCtx, client, packageGUID)
+			_, err := packageRepo.FetchPackage(context.Background(), testClient, packageGUID)
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err).To(MatchError("duplicate packages exist"))
 		})
@@ -250,10 +301,119 @@ func testFetchPackage(t *testing.T, when spec.G, it spec.S) {
 
 	when("no packages exist", func() {
 		it("returns an error", func() {
-			_, err := packageRepo.FetchPackage(testCtx, client, "i don't exist")
+			_, err := packageRepo.FetchPackage(context.Background(), testClient, "i don't exist")
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(err).To(MatchError(NotFoundError{}))
 		})
+	})
+}
+
+func testUpdatePackageSourceRegistry(t *testing.T, when spec.G, it spec.S) {
+	g := NewWithT(t)
+
+	var (
+		packageRepo       *PackageRepo
+		client            client.Client
+		existingCFPackage workloadsv1alpha1.CFPackage
+		spaceGUID         string
+		updateMessage     PackageUpdateSourceMessage
+	)
+
+	const (
+		packageGUID               = "the-package-guid"
+		appGUID                   = "the-app-guid"
+		packageSourceImageRef     = "my-org/" + packageGUID
+		packageRegistrySecretName = "image-pull-secret"
+	)
+
+	it.Before(func() {
+		spaceGUID = generateGUID()
+		packageRepo = new(PackageRepo)
+		ctx := context.Background()
+
+		var err error
+		client, err = BuildCRClient(k8sConfig)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		existingCFPackage = workloadsv1alpha1.CFPackage{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "CFPackage",
+				APIVersion: workloadsv1alpha1.GroupVersion.String(),
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      packageGUID,
+				Namespace: spaceGUID,
+			},
+			Spec: workloadsv1alpha1.CFPackageSpec{
+				Type:   "bits",
+				AppRef: corev1.LocalObjectReference{Name: appGUID},
+			},
+		}
+
+		updateMessage = PackageUpdateSourceMessage{
+			GUID:               packageGUID,
+			SpaceGUID:          spaceGUID,
+			ImageRef:           packageSourceImageRef,
+			RegistrySecretName: packageRegistrySecretName,
+		}
+
+		g.Expect(
+			k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: spaceGUID}}),
+		).To(Succeed())
+
+		g.Expect(
+			k8sClient.Create(ctx, &existingCFPackage),
+		).To(Succeed())
+	})
+
+	it.After(func() {
+		g.Expect(
+			k8sClient.Delete(context.Background(), &existingCFPackage),
+		).To(Succeed())
+
+		g.Expect(
+			k8sClient.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: spaceGUID}}),
+		).To(Succeed())
+	})
+
+	it("returns an updated record", func() {
+		returnedPackageRecord, err := packageRepo.UpdatePackageSource(context.Background(), client, updateMessage)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		g.Expect(returnedPackageRecord.GUID).To(Equal(existingCFPackage.ObjectMeta.Name))
+		g.Expect(returnedPackageRecord.Type).To(Equal(string(existingCFPackage.Spec.Type)))
+		g.Expect(returnedPackageRecord.AppGUID).To(Equal(existingCFPackage.Spec.AppRef.Name))
+		g.Expect(returnedPackageRecord.SpaceGUID).To(Equal(existingCFPackage.ObjectMeta.Namespace))
+		g.Expect(returnedPackageRecord.State).To(Equal("PROCESSING_UPLOAD"))
+
+		createdAt, err := time.Parse(time.RFC3339, returnedPackageRecord.CreatedAt)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(createdAt).To(BeTemporally("~", time.Now(), time.Second))
+
+		updatedAt, err := time.Parse(time.RFC3339, returnedPackageRecord.CreatedAt)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(updatedAt).To(BeTemporally("~", time.Now(), time.Second))
+	})
+
+	it("updates only the Registry field of the existing CFPackage", func() {
+		_, err := packageRepo.UpdatePackageSource(context.Background(), client, updateMessage)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		packageNSName := types.NamespacedName{Name: packageGUID, Namespace: spaceGUID}
+		createdCFPackage := new(workloadsv1alpha1.CFPackage)
+		g.Eventually(func() bool {
+			err := k8sClient.Get(context.Background(), packageNSName, createdCFPackage)
+			return err == nil
+		}, 10*time.Second, 250*time.Millisecond).Should(BeTrue())
+
+		g.Expect(createdCFPackage.Name).To(Equal(existingCFPackage.ObjectMeta.Name))
+		g.Expect(createdCFPackage.Namespace).To(Equal(existingCFPackage.ObjectMeta.Namespace))
+		g.Expect(createdCFPackage.Spec.Type).To(Equal(existingCFPackage.Spec.Type))
+		g.Expect(createdCFPackage.Spec.AppRef).To(Equal(existingCFPackage.Spec.AppRef))
+		g.Expect(createdCFPackage.Spec.Source.Registry).To(Equal(workloadsv1alpha1.Registry{
+			Image:            packageSourceImageRef,
+			ImagePullSecrets: []corev1.LocalObjectReference{{Name: packageRegistrySecretName}},
+		}))
 	})
 }
 
