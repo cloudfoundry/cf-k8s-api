@@ -3,9 +3,10 @@ package apis_test
 import (
 	"encoding/json"
 	"errors"
-	"github.com/gorilla/mux"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -14,6 +15,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 
+	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/rest"
@@ -64,9 +66,11 @@ var _ = Describe("AppHandler", func() {
 			router = mux.NewRouter()
 			clientBuilder := new(fake.ClientBuilder)
 
+			serverURL, err := url.Parse(defaultServerURL)
+			Expect(err).NotTo(HaveOccurred())
 			apiHandler := NewAppHandler(
 				logf.Log.WithName(testAppHandlerLoggerName),
-				defaultServerURL,
+				*serverURL,
 				appRepo,
 				clientBuilder.Spy,
 				&rest.Config{},
@@ -89,8 +93,8 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns the App in the response", func() {
-				Expect(rr.Body.String()).To(MatchJSON(`{
-				"guid": "`+appGUID+`",
+				Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+				"guid": "%[2]s",
 				"created_at": "",
 				"updated_at": "",
 				"name": "test-app",
@@ -105,7 +109,7 @@ var _ = Describe("AppHandler", func() {
 				"relationships": {
 				  "space": {
 					"data": {
-					  "guid": "`+spaceGUID+`"
+					  "guid": "%[3]s"
 					}
 				  }
 				},
@@ -115,72 +119,73 @@ var _ = Describe("AppHandler", func() {
 				},
 				"links": {
 				  "self": {
-					"href": "https://api.example.org/v3/apps/`+appGUID+`"
+					"href": "%[1]s/v3/apps/%[2]s"
 				  },
 				  "environment_variables": {
-					"href": "https://api.example.org/v3/apps/`+appGUID+`/environment_variables"
+					"href": "%[1]s/v3/apps/%[2]s/environment_variables"
 				  },
 				  "space": {
-					"href": "https://api.example.org/v3/spaces/`+spaceGUID+`"
+					"href": "%[1]s/v3/spaces/%[3]s"
 				  },
 				  "processes": {
-					"href": "https://api.example.org/v3/apps/`+appGUID+`/processes"
+					"href": "%[1]s/v3/apps/%[2]s/processes"
 				  },
 				  "packages": {
-					"href": "https://api.example.org/v3/apps/`+appGUID+`/packages"
+					"href": "%[1]s/v3/apps/%[2]s/packages"
 				  },
 				  "current_droplet": {
-					"href": "https://api.example.org/v3/apps/`+appGUID+`/droplets/current"
+					"href": "%[1]s/v3/apps/%[2]s/droplets/current"
 				  },
 				  "droplets": {
-					"href": "https://api.example.org/v3/apps/`+appGUID+`/droplets"
+					"href": "%[1]s/v3/apps/%[2]s/droplets"
 				  },
 				  "tasks": {
-					"href": "https://api.example.org/v3/apps/`+appGUID+`/tasks"
+					"href": "%[1]s/v3/apps/%[2]s/tasks"
 				  },
 				  "start": {
-					"href": "https://api.example.org/v3/apps/`+appGUID+`/actions/start",
+					"href": "%[1]s/v3/apps/%[2]s/actions/start",
 					"method": "POST"
 				  },
 				  "stop": {
-					"href": "https://api.example.org/v3/apps/`+appGUID+`/actions/stop",
+					"href": "%[1]s/v3/apps/%[2]s/actions/stop",
 					"method": "POST"
 				  },
 				  "revisions": {
-					"href": "https://api.example.org/v3/apps/`+appGUID+`/revisions"
+					"href": "%[1]s/v3/apps/%[2]s/revisions"
 				  },
 				  "deployed_revisions": {
-					"href": "https://api.example.org/v3/apps/`+appGUID+`/revisions/deployed"
+					"href": "%[1]s/v3/apps/%[2]s/revisions/deployed"
 				  },
 				  "features": {
-					"href": "https://api.example.org/v3/apps/`+appGUID+`/features"
+					"href": "%[1]s/v3/apps/%[2]s/features"
 				  }
 				}
-			}`), "Response body matches response:")
-			})
-		})
-
-		When("the app cannot be found", func() {
-			BeforeEach(func() {
-				appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
-
-				router.ServeHTTP(rr, req)
+			}`, defaultServerURL, appGUID, spaceGUID)), "Response body matches response:")
 			})
 
-			// TODO: should we return code 100004 instead?
-			itRespondsWithNotFound("App not found", getRR)
-		})
+			When("the app cannot be found", func() {
+				BeforeEach(func() {
+					appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
 
-		When("there is some other error fetching the app", func() {
-			BeforeEach(func() {
-				appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
+					router.ServeHTTP(rr, req)
+				})
 
-				router.ServeHTTP(rr, req)
+				// TODO: should we return code 100004 instead?
+				itRespondsWithNotFound("App not found", getRR)
 			})
 
-			itRespondsWithUnknownError(getRR)
+			When("there is some other error fetching the app", func() {
+				BeforeEach(func() {
+					appRepo.FetchAppReturns(repositories.AppRecord{}, errors.New("unknown!"))
+
+					router.ServeHTTP(rr, req)
+				})
+
+				itRespondsWithUnknownError(getRR)
+			})
 		})
 	})
+
 	Describe("the POST /v3/apps endpoint", func() {
 		const (
 			testAppName = "test-app"
@@ -208,9 +213,11 @@ var _ = Describe("AppHandler", func() {
 			router = mux.NewRouter()
 
 			appRepo = new(fake.CFAppRepository)
+			serverURL, err := url.Parse(defaultServerURL)
+			Expect(err).NotTo(HaveOccurred())
 			apiHandler := NewAppHandler(
 				logf.Log.WithName(testAppHandlerLoggerName),
-				defaultServerURL,
+				*serverURL,
 				appRepo,
 				new(fake.ClientBuilder).Spy,
 				&rest.Config{},
@@ -547,8 +554,8 @@ var _ = Describe("AppHandler", func() {
 				})
 
 				It("returns the \"created app\"(the mock response record) in the response", func() {
-					Expect(rr.Body.String()).To(MatchJSON(`{
-					"guid": "`+appGUID+`",
+					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
+					"guid": "%[2]s",
 					"created_at": "",
 					"updated_at": "",
 					"name": "test-app",
@@ -563,7 +570,7 @@ var _ = Describe("AppHandler", func() {
 					"relationships": {
 					  "space": {
 						"data": {
-						  "guid": "`+spaceGUID+`"
+						  "guid": "%[3]s"
 						}
 					  }
 					},
@@ -573,48 +580,48 @@ var _ = Describe("AppHandler", func() {
 					},
 					"links": {
 					  "self": {
-						"href": "https://api.example.org/v3/apps/`+appGUID+`"
+						"href": "%[1]s/v3/apps/%[2]s"
 					  },
 					  "environment_variables": {
-						"href": "https://api.example.org/v3/apps/`+appGUID+`/environment_variables"
+						"href": "%[1]s/v3/apps/%[2]s/environment_variables"
 					  },
 					  "space": {
-						"href": "https://api.example.org/v3/spaces/`+spaceGUID+`"
+						"href": "%[1]s/v3/spaces/%[3]s"
 					  },
 					  "processes": {
-						"href": "https://api.example.org/v3/apps/`+appGUID+`/processes"
+						"href": "%[1]s/v3/apps/%[2]s/processes"
 					  },
 					  "packages": {
-						"href": "https://api.example.org/v3/apps/`+appGUID+`/packages"
+						"href": "%[1]s/v3/apps/%[2]s/packages"
 					  },
 					  "current_droplet": {
-						"href": "https://api.example.org/v3/apps/`+appGUID+`/droplets/current"
+						"href": "%[1]s/v3/apps/%[2]s/droplets/current"
 					  },
 					  "droplets": {
-						"href": "https://api.example.org/v3/apps/`+appGUID+`/droplets"
+						"href": "%[1]s/v3/apps/%[2]s/droplets"
 					  },
 					  "tasks": {
-						"href": "https://api.example.org/v3/apps/`+appGUID+`/tasks"
+						"href": "%[1]s/v3/apps/%[2]s/tasks"
 					  },
 					  "start": {
-						"href": "https://api.example.org/v3/apps/`+appGUID+`/actions/start",
+						"href": "%[1]s/v3/apps/%[2]s/actions/start",
 						"method": "POST"
 					  },
 					  "stop": {
-						"href": "https://api.example.org/v3/apps/`+appGUID+`/actions/stop",
+						"href": "%[1]s/v3/apps/%[2]s/actions/stop",
 						"method": "POST"
 					  },
 					  "revisions": {
-						"href": "https://api.example.org/v3/apps/`+appGUID+`/revisions"
+						"href": "%[1]s/v3/apps/%[2]s/revisions"
 					  },
 					  "deployed_revisions": {
-						"href": "https://api.example.org/v3/apps/`+appGUID+`/revisions/deployed"
+						"href": "%[1]s/v3/apps/%[2]s/revisions/deployed"
 					  },
 					  "features": {
-						"href": "https://api.example.org/v3/apps/`+appGUID+`/features"
+						"href": "%[1]s/v3/apps/%[2]s/features"
 					  }
 					}
-				}`), "Response body matches response:")
+				}`, defaultServerURL, appGUID, spaceGUID)), "Response body matches response:")
 				})
 			})
 
@@ -700,6 +707,7 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 	})
+
 	Describe("the GET /v3/apps endpoint", func() {
 		const (
 			testAppHandlerLoggerName = "TestAppHandler"
@@ -753,9 +761,11 @@ var _ = Describe("AppHandler", func() {
 			router = mux.NewRouter()
 			clientBuilder := new(fake.ClientBuilder)
 
+			serverURL, err := url.Parse(defaultServerURL)
+			Expect(err).NotTo(HaveOccurred())
 			apiHandler := NewAppHandler(
 				logf.Log.WithName(testAppHandlerLoggerName),
-				defaultServerURL,
+				*serverURL,
 				appRepo,
 				clientBuilder.Spy,
 				&rest.Config{},
@@ -778,15 +788,15 @@ var _ = Describe("AppHandler", func() {
 			})
 
 			It("returns the Pagination Data and App Resources in the response", func() {
-				Expect(rr.Body.String()).Should(MatchJSON(`{
+				Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(`{
 				"pagination": {
 				  "total_results": 2,
 				  "total_pages": 1,
 				  "first": {
-					"href": "https://api.example.org/v3/apps?page=1"
+					"href": "%[1]s/v3/apps?page=1"
 				  },
 				  "last": {
-					"href": "https://api.example.org/v3/apps?page=1"
+					"href": "%[1]s/v3/apps?page=1"
 				  },
 				  "next": null,
 				  "previous": null
@@ -818,45 +828,45 @@ var _ = Describe("AppHandler", func() {
 						},
 						"links": {
 						  "self": {
-							"href": "https://api.example.org/v3/apps/first-test-app-guid"
+							"href": "%[1]s/v3/apps/first-test-app-guid"
 						  },
 						  "environment_variables": {
-							"href": "https://api.example.org/v3/apps/first-test-app-guid/environment_variables"
+							"href": "%[1]s/v3/apps/first-test-app-guid/environment_variables"
 						  },
 						  "space": {
-							"href": "https://api.example.org/v3/spaces/test-space-guid"
+							"href": "%[1]s/v3/spaces/test-space-guid"
 						  },
 						  "processes": {
-							"href": "https://api.example.org/v3/apps/first-test-app-guid/processes"
+							"href": "%[1]s/v3/apps/first-test-app-guid/processes"
 						  },
 						  "packages": {
-							"href": "https://api.example.org/v3/apps/first-test-app-guid/packages"
+							"href": "%[1]s/v3/apps/first-test-app-guid/packages"
 						  },
 						  "current_droplet": {
-							"href": "https://api.example.org/v3/apps/first-test-app-guid/droplets/current"
+							"href": "%[1]s/v3/apps/first-test-app-guid/droplets/current"
 						  },
 						  "droplets": {
-							"href": "https://api.example.org/v3/apps/first-test-app-guid/droplets"
+							"href": "%[1]s/v3/apps/first-test-app-guid/droplets"
 						  },
 						  "tasks": {
-							"href": "https://api.example.org/v3/apps/first-test-app-guid/tasks"
+							"href": "%[1]s/v3/apps/first-test-app-guid/tasks"
 						  },
 						  "start": {
-							"href": "https://api.example.org/v3/apps/first-test-app-guid/actions/start",
+							"href": "%[1]s/v3/apps/first-test-app-guid/actions/start",
 							"method": "POST"
 						  },
 						  "stop": {
-							"href": "https://api.example.org/v3/apps/first-test-app-guid/actions/stop",
+							"href": "%[1]s/v3/apps/first-test-app-guid/actions/stop",
 							"method": "POST"
 						  },
 						  "revisions": {
-							"href": "https://api.example.org/v3/apps/first-test-app-guid/revisions"
+							"href": "%[1]s/v3/apps/first-test-app-guid/revisions"
 						  },
 						  "deployed_revisions": {
-							"href": "https://api.example.org/v3/apps/first-test-app-guid/revisions/deployed"
+							"href": "%[1]s/v3/apps/first-test-app-guid/revisions/deployed"
 						  },
 						  "features": {
-							"href": "https://api.example.org/v3/apps/first-test-app-guid/features"
+							"href": "%[1]s/v3/apps/first-test-app-guid/features"
 						  }
 						}
 					},
@@ -886,96 +896,96 @@ var _ = Describe("AppHandler", func() {
 						},
 						"links": {
 						  "self": {
-							"href": "https://api.example.org/v3/apps/second-test-app-guid"
+							"href": "%[1]s/v3/apps/second-test-app-guid"
 						  },
 						  "environment_variables": {
-							"href": "https://api.example.org/v3/apps/second-test-app-guid/environment_variables"
+							"href": "%[1]s/v3/apps/second-test-app-guid/environment_variables"
 						  },
 						  "space": {
-							"href": "https://api.example.org/v3/spaces/test-space-guid"
+							"href": "%[1]s/v3/spaces/test-space-guid"
 						  },
 						  "processes": {
-							"href": "https://api.example.org/v3/apps/second-test-app-guid/processes"
+							"href": "%[1]s/v3/apps/second-test-app-guid/processes"
 						  },
 						  "packages": {
-							"href": "https://api.example.org/v3/apps/second-test-app-guid/packages"
+							"href": "%[1]s/v3/apps/second-test-app-guid/packages"
 						  },
 						  "current_droplet": {
-							"href": "https://api.example.org/v3/apps/second-test-app-guid/droplets/current"
+							"href": "%[1]s/v3/apps/second-test-app-guid/droplets/current"
 						  },
 						  "droplets": {
-							"href": "https://api.example.org/v3/apps/second-test-app-guid/droplets"
+							"href": "%[1]s/v3/apps/second-test-app-guid/droplets"
 						  },
 						  "tasks": {
-							"href": "https://api.example.org/v3/apps/second-test-app-guid/tasks"
+							"href": "%[1]s/v3/apps/second-test-app-guid/tasks"
 						  },
 						  "start": {
-							"href": "https://api.example.org/v3/apps/second-test-app-guid/actions/start",
+							"href": "%[1]s/v3/apps/second-test-app-guid/actions/start",
 							"method": "POST"
 						  },
 						  "stop": {
-							"href": "https://api.example.org/v3/apps/second-test-app-guid/actions/stop",
+							"href": "%[1]s/v3/apps/second-test-app-guid/actions/stop",
 							"method": "POST"
 						  },
 						  "revisions": {
-							"href": "https://api.example.org/v3/apps/second-test-app-guid/revisions"
+							"href": "%[1]s/v3/apps/second-test-app-guid/revisions"
 						  },
 						  "deployed_revisions": {
-							"href": "https://api.example.org/v3/apps/second-test-app-guid/revisions/deployed"
+							"href": "%[1]s/v3/apps/second-test-app-guid/revisions/deployed"
 						  },
 						  "features": {
-							"href": "https://api.example.org/v3/apps/second-test-app-guid/features"
+							"href": "%[1]s/v3/apps/second-test-app-guid/features"
 						  }
 						}
 					}
 				]
-			}`), "Response body matches response:")
-			})
-		})
-
-		When("no apps can be found", func() {
-			BeforeEach(func() {
-				appRepo.FetchAppListReturns([]repositories.AppRecord{}, nil)
-
-				router.ServeHTTP(rr, req)
+			}`, defaultServerURL)), "Response body matches response:")
 			})
 
-			It("returns status 200 OK", func() {
-				Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
-			})
+			When("no apps can be found", func() {
+				BeforeEach(func() {
+					appRepo.FetchAppListReturns([]repositories.AppRecord{}, nil)
 
-			It("returns Content-Type as JSON in header", func() {
-				contentTypeHeader := rr.Header().Get("Content-Type")
-				Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
-			})
+					router.ServeHTTP(rr, req)
+				})
 
-			It("returns a CF API formatted Error response", func() {
-				Expect(rr.Body.String()).Should(MatchJSON(`{
+				It("returns status 200 OK", func() {
+					Expect(rr.Code).Should(Equal(http.StatusOK), "Matching HTTP response code:")
+				})
+
+				It("returns Content-Type as JSON in header", func() {
+					contentTypeHeader := rr.Header().Get("Content-Type")
+					Expect(contentTypeHeader).Should(Equal(jsonHeader), "Matching Content-Type header:")
+				})
+
+				It("returns a CF API formatted Error response", func() {
+					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
 				"pagination": {
 				  "total_results": 0,
 				  "total_pages": 1,
 				  "first": {
-					"href": "https://api.example.org/v3/apps?page=1"
+					"href": "%[1]s/v3/apps?page=1"
 				  },
 				  "last": {
-					"href": "https://api.example.org/v3/apps?page=1"
+					"href": "%[1]s/v3/apps?page=1"
 				  },
 				  "next": null,
 				  "previous": null
 				},
 				"resources": []
-			}`), "Response body matches response:")
+			}`, defaultServerURL)), "Response body matches response:")
+				})
+
+				When("there is some other error fetching apps", func() {
+					BeforeEach(func() {
+						appRepo.FetchAppListReturns([]repositories.AppRecord{}, errors.New("unknown!"))
+
+						router.ServeHTTP(rr, req)
+					})
+
+					itRespondsWithUnknownError(getRR)
+				})
 			})
-		})
-
-		When("there is some other error fetching apps", func() {
-			BeforeEach(func() {
-				appRepo.FetchAppListReturns([]repositories.AppRecord{}, errors.New("unknown!"))
-
-				router.ServeHTTP(rr, req)
-			})
-
-			itRespondsWithUnknownError(getRR)
 		})
 	})
 })

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/pivotal/kpack/pkg/registry"
@@ -66,6 +67,11 @@ func main() {
 		panic(fmt.Sprintf("could not create privileged k8s client: %v", err))
 	}
 
+	serverURL, err := url.Parse(config.ServerURL)
+	if err != nil {
+		panic(fmt.Sprintf("could not parse server URL: %v", err))
+	}
+
 	handlers := []APIHandler{
 		apis.NewRootV3Handler(config.ServerURL),
 		apis.NewRootHandler(
@@ -75,14 +81,14 @@ func main() {
 		apis.NewResourceMatchesHandler(config.ServerURL),
 		apis.NewAppHandler(
 			ctrl.Log.WithName("AppHandler"),
-			config.ServerURL,
+			*serverURL,
 			new(repositories.AppRepo),
 			repositories.BuildCRClient,
 			k8sClientConfig,
 		),
 		apis.NewRouteHandler(
 			ctrl.Log.WithName("RouteHandler"),
-			config.ServerURL,
+			*serverURL,
 			new(repositories.RouteRepo),
 			new(repositories.DomainRepo),
 			new(repositories.AppRepo),
@@ -91,7 +97,7 @@ func main() {
 		),
 		apis.NewPackageHandler(
 			ctrl.Log.WithName("PackageHandler"),
-			config.ServerURL,
+			*serverURL,
 			new(repositories.PackageRepo),
 			new(repositories.AppRepo),
 			repositories.BuildCRClient,
@@ -103,7 +109,7 @@ func main() {
 		),
 		apis.NewBuildHandler(
 			ctrl.Log.WithName("BuildHandler"),
-			config.ServerURL,
+			*serverURL,
 			new(repositories.BuildRepo),
 			new(repositories.PackageRepo),
 			repositories.BuildCRClient,
@@ -111,11 +117,11 @@ func main() {
 		),
 		apis.NewOrgHandler(
 			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient),
-			config.ServerURL,
+			*serverURL,
 		),
 		apis.NewSpaceHandler(
 			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient),
-			config.ServerURL,
+			*serverURL,
 		),
 	}
 

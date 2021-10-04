@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"code.cloudfoundry.org/cf-k8s-api/payloads"
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
@@ -37,7 +38,7 @@ type CFAppRepository interface {
 
 type AppHandler struct {
 	logger      logr.Logger
-	serverURL   string
+	serverURL   url.URL
 	appRepo     CFAppRepository
 	buildClient ClientBuilder
 	k8sConfig   *rest.Config // TODO: this would be global for all requests, not what we want
@@ -45,7 +46,7 @@ type AppHandler struct {
 
 func NewAppHandler(
 	logger logr.Logger,
-	serverURL string,
+	serverURL url.URL,
 	appRepo CFAppRepository,
 	buildClient ClientBuilder,
 	k8sConfig *rest.Config) *AppHandler {

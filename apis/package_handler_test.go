@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -86,7 +87,17 @@ var _ = Describe("PackageHandler", func() {
 
 			clientBuilder = new(fake.ClientBuilder)
 
-			apiHandler := NewPackageHandler(logf.Log.WithName(testPackageHandlerLoggerName), defaultServerURL, packageRepo, appRepo, clientBuilder.Spy, nil, nil, &rest.Config{}, "", "")
+			serverURL, err := url.Parse(defaultServerURL)
+			Expect(err).NotTo(HaveOccurred())
+			apiHandler := NewPackageHandler(
+				logf.Log.WithName(testPackageHandlerLoggerName),
+				*serverURL,
+				packageRepo,
+				appRepo,
+				clientBuilder.Spy,
+				nil, nil,
+				&rest.Config{},
+				"", "")
 			apiHandler.RegisterRoutes(router)
 		})
 
@@ -434,9 +445,11 @@ var _ = Describe("PackageHandler", func() {
 			buildRegistryAuth = new(fake.RegistryAuthBuilder)
 			buildRegistryAuth.Returns(credentialOption, nil)
 
+			serverURL, err := url.Parse(defaultServerURL)
+			Expect(err).NotTo(HaveOccurred())
 			apiHandler := NewPackageHandler(
 				logf.Log.WithName(testPackageHandlerLoggerName),
-				defaultServerURL,
+				*serverURL,
 				packageRepo,
 				appRepo,
 				clientBuilder.Spy,

@@ -1,12 +1,14 @@
 package apis_test
 
 import (
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
+
+	"code.cloudfoundry.org/cf-k8s-api/repositories"
 
 	. "code.cloudfoundry.org/cf-k8s-api/apis"
 	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
@@ -75,9 +77,11 @@ var _ = Describe("BuildHandler", func() {
 			router = mux.NewRouter()
 			clientBuilder = new(fake.ClientBuilder)
 
+			serverURL, err := url.Parse(defaultServerURL)
+			Expect(err).NotTo(HaveOccurred())
 			buildHandler := NewBuildHandler(
 				logf.Log.WithName(testBuildHandlerLoggerName),
-				defaultServerURL,
+				*serverURL,
 				buildRepo,
 				new(fake.CFPackageRepository),
 				clientBuilder.Spy,
@@ -335,6 +339,7 @@ var _ = Describe("BuildHandler", func() {
 			itRespondsWithUnknownError(getRR)
 		})
 	})
+
 	Describe("the POST /v3/builds endpoint", func() {
 		var (
 			rr            *httptest.ResponseRecorder
@@ -407,9 +412,11 @@ var _ = Describe("BuildHandler", func() {
 			}, nil)
 
 			clientBuilder = new(fake.ClientBuilder)
+			serverURL, err := url.Parse(defaultServerURL)
+			Expect(err).NotTo(HaveOccurred())
 			buildHandler := NewBuildHandler(
 				logf.Log.WithName(testBuildHandlerLoggerName),
-				defaultServerURL,
+				*serverURL,
 				buildRepo,
 				packageRepo,
 				clientBuilder.Spy,

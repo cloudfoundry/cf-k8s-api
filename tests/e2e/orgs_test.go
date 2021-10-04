@@ -4,6 +4,7 @@
 package e2e_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -12,6 +13,7 @@ import (
 	"strings"
 
 	. "github.com/onsi/gomega/gstruct"
+	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
@@ -21,6 +23,48 @@ import (
 )
 
 var _ = Describe("Orgs", func() {
+	Describe("creating orgs", func() {
+		var orgName string
+
+		BeforeEach(func() {
+			orgName = generateGUID("org")
+		})
+
+		AfterEach(func() {
+			deleteOrg(orgName)
+		})
+
+		It("creates an org", func() {
+			orgsUrl := apiServerRoot + "/v3/organizations"
+
+			body := fmt.Sprintf(`{ "name": "%s" }`, orgName)
+			req, err := http.NewRequest(http.MethodPost, orgsUrl, strings.NewReader(body))
+			Expect(err).NotTo(HaveOccurred())
+
+			resp, err := http.DefaultClient.Do(req)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+
+			Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+			Expect(resp.Header["Content-Type"]).To(ConsistOf("application/json"))
+			responseMap := map[string]interface{}{}
+			Expect(json.NewDecoder(resp.Body).Decode(&responseMap)).To(Succeed())
+			Expect(responseMap["name"]).To(Equal(orgName))
+
+			subnamespaceAnchorList := &v1alpha2.SubnamespaceAnchorList{}
+			err = k8sClient.List(context.Background(), subnamespaceAnchorList)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(subnamespaceAnchorList.Items).To(ContainElement(
+				MatchFields(IgnoreExtras, Fields{
+					"ObjectMeta": MatchFields(IgnoreExtras, Fields{
+						"Labels": HaveKeyWithValue(repositories.OrgNameLabel, orgName),
+					}),
+				}),
+			))
+		})
+	})
+
 	Describe("Listing Orgs", func() {
 		var (
 			orgs []hierarchicalNamespace

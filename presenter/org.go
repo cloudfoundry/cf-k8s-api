@@ -1,8 +1,7 @@
 package presenter
 
 import (
-	neturl "net/url"
-	"path"
+	"net/url"
 	"time"
 
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
@@ -58,32 +57,15 @@ type SpaceLinks struct {
 	Organization *Link `json:"organization"`
 }
 
-func ForOrgList(orgs []repositories.OrgRecord, apiBaseURL string) OrgListResponse {
-	baseURL, _ := neturl.Parse(apiBaseURL)
-	baseURL.Path = orgsBase
-	baseURL.RawQuery = "page=1"
+func ForCreateOrg(org repositories.OrgRecord, apiBaseURL url.URL) OrgResponse {
+	return toOrgResponse(org, apiBaseURL)
+}
 
-	selfLink, _ := neturl.Parse(apiBaseURL)
-
+func ForOrgList(orgs []repositories.OrgRecord, apiBaseURL url.URL) OrgListResponse {
 	orgResponses := []OrgResponse{}
+
 	for _, org := range orgs {
-		selfLink.Path = path.Join(orgsBase, org.GUID)
-		orgResponses = append(orgResponses, OrgResponse{
-			Name:      org.Name,
-			GUID:      org.GUID,
-			CreatedAt: org.CreatedAt.UTC().Format(time.RFC3339),
-			UpdatedAt: org.CreatedAt.UTC().Format(time.RFC3339),
-			Metadata: Metadata{
-				Labels:      map[string]string{},
-				Annotations: map[string]string{},
-			},
-			Relationships: Relationships{},
-			Links: OrgLinks{
-				Self: &Link{
-					HREF: selfLink.String(),
-				},
-			},
-		})
+		orgResponses = append(orgResponses, toOrgResponse(org, apiBaseURL))
 	}
 
 	return OrgListResponse{
@@ -91,28 +73,20 @@ func ForOrgList(orgs []repositories.OrgRecord, apiBaseURL string) OrgListRespons
 			TotalResults: len(orgs),
 			TotalPages:   1,
 			First: PageRef{
-				HREF: prefixedLinkURL(apiBaseURL, "v3/organizations?page=1"),
+				HREF: buildURL(apiBaseURL).appendPath(orgsBase).setQuery("page=1").build(),
 			},
 			Last: PageRef{
-				HREF: prefixedLinkURL(apiBaseURL, "v3/organizations?page=1"),
+				HREF: buildURL(apiBaseURL).appendPath(orgsBase).setQuery("page=1").build(),
 			},
 		},
 		Resources: orgResponses,
 	}
 }
 
-func ForSpaceList(spaces []repositories.SpaceRecord, apiBaseURL string) SpaceListResponse {
-	baseURL, _ := neturl.Parse(apiBaseURL)
-	baseURL.Path = spacesBase
-	baseURL.RawQuery = "page=1"
-
-	selfLink, _ := neturl.Parse(apiBaseURL)
-	orgLink, _ := neturl.Parse(apiBaseURL)
-
+func ForSpaceList(spaces []repositories.SpaceRecord, apiBaseURL url.URL) SpaceListResponse {
 	spaceResponses := []SpaceResponse{}
+
 	for _, space := range spaces {
-		selfLink.Path = path.Join(spacesBase, space.GUID)
-		orgLink.Path = path.Join(orgsBase, space.OrganizationGUID)
 		spaceResponses = append(spaceResponses, SpaceResponse{
 			Name:      space.Name,
 			GUID:      space.GUID,
@@ -131,26 +105,54 @@ func ForSpaceList(spaces []repositories.SpaceRecord, apiBaseURL string) SpaceLis
 			},
 			Links: SpaceLinks{
 				Self: &Link{
-					HREF: selfLink.String(),
+					HREF: buildURL(apiBaseURL).appendPath(spacesBase, space.GUID).build(),
 				},
 				Organization: &Link{
-					HREF: orgLink.String(),
+					HREF: buildURL(apiBaseURL).appendPath(orgsBase, space.OrganizationGUID).build(),
 				},
 			},
 		})
 	}
 
+	paginationURL := buildURL(apiBaseURL).appendPath(spacesBase).setQuery("page=1").build()
 	return SpaceListResponse{
 		Pagination: PaginationData{
 			TotalResults: len(spaces),
 			TotalPages:   1,
 			First: PageRef{
-				HREF: prefixedLinkURL(apiBaseURL, "v3/spaces?page=1"),
+				HREF: paginationURL,
 			},
 			Last: PageRef{
-				HREF: prefixedLinkURL(apiBaseURL, "v3/spaces?page=1"),
+				HREF: paginationURL,
 			},
 		},
 		Resources: spaceResponses,
 	}
+}
+
+func toOrgResponse(org repositories.OrgRecord, apiBaseURL url.URL) OrgResponse {
+	return OrgResponse{
+		Name:      org.Name,
+		GUID:      org.GUID,
+		CreatedAt: org.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt: org.CreatedAt.UTC().Format(time.RFC3339),
+		Suspended: org.Suspended,
+		Metadata: Metadata{
+			Labels:      orEmptyMap(org.Labels),
+			Annotations: orEmptyMap(org.Annotations),
+		},
+		Relationships: Relationships{},
+		Links: OrgLinks{
+			Self: &Link{
+				HREF: buildURL(apiBaseURL).appendPath(orgsBase, org.GUID).build(),
+			},
+		},
+	}
+}
+
+func orEmptyMap(m map[string]string) map[string]string {
+	if m == nil {
+		return map[string]string{}
+	}
+	return m
 }

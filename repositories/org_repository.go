@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -16,11 +17,13 @@ const (
 )
 
 type OrgRecord struct {
-	Name      string
-	GUID      string
-	Suspended bool
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	Name        string
+	GUID        string
+	Suspended   bool
+	Labels      map[string]string
+	Annotations map[string]string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 type SpaceRecord struct {
@@ -41,6 +44,27 @@ func NewOrgRepo(rootNamespace string, privilegedClient client.Client) *OrgRepo {
 		rootNamespace:    rootNamespace,
 		privilegedClient: privilegedClient,
 	}
+}
+
+func (r *OrgRepo) CreateOrg(ctx context.Context, org OrgRecord) (OrgRecord, error) {
+	anchor := &v1alpha2.SubnamespaceAnchor{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: org.Name,
+			Namespace:    r.rootNamespace,
+			Labels: map[string]string{
+				OrgNameLabel: org.Name,
+			},
+		},
+	}
+	err := r.privilegedClient.Create(ctx, anchor)
+	if err != nil {
+		return OrgRecord{}, err
+	}
+
+	org.GUID = string(anchor.UID)
+	org.CreatedAt = anchor.CreationTimestamp.Time
+	org.UpdatedAt = anchor.CreationTimestamp.Time
+	return org, nil
 }
 
 func (r *OrgRepo) FetchOrgs(ctx context.Context, names []string) ([]OrgRecord, error) {
