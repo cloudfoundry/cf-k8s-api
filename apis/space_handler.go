@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
@@ -26,10 +27,10 @@ type CFSpaceRepository interface {
 type SpaceHandler struct {
 	spaceRepo  CFSpaceRepository
 	logger     logr.Logger
-	apiBaseURL string
+	apiBaseURL url.URL
 }
 
-func NewSpaceHandler(spaceRepo CFSpaceRepository, apiBaseURL string) *SpaceHandler {
+func NewSpaceHandler(spaceRepo CFSpaceRepository, apiBaseURL url.URL) *SpaceHandler {
 	return &SpaceHandler{
 		spaceRepo:  spaceRepo,
 		apiBaseURL: apiBaseURL,

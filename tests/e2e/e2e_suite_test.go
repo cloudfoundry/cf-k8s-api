@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-api/repositories"
 	"github.com/hashicorp/go-uuid"
 	"github.com/matt-royal/biloba"
 	. "github.com/onsi/ginkgo"
@@ -140,5 +141,12 @@ func deleteSubnamespace(parent, name string) {
 		},
 	}
 	err := k8sClient.Delete(ctx, &anchor)
+	Expect(err).NotTo(HaveOccurred())
+}
+
+func deleteSubnamespaceByLabel(parentNS, label string) {
+	ctx := context.Background()
+
+	err := k8sClient.DeleteAllOf(ctx, &hnsv1alpha2.SubnamespaceAnchor{}, client.MatchingLabels{repositories.OrgNameLabel: label}, client.InNamespace(parentNS))
 	Expect(err).NotTo(HaveOccurred())
 }

@@ -31,7 +31,9 @@ test: fmt vet ## Run tests.
 	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test ./... -coverprofile cover.out -shuffle on
 
 test-e2e: ginkgo
-	if [ -z "SKIP_DEPLOY" ]; then ./scripts/deploy-on-kind.sh e2e; fi
+ifndef SKIP_DEPLOY
+	./scripts/deploy-on-kind.sh e2e
+endif
 	KUBECONFIG="${HOME}/.kube/e2e.yml" API_SERVER_ROOT=http://localhost ROOT_NAMESPACE=cf-k8s-api-system $(GINKGO) -p -randomizeAllSpecs -randomizeSuites -keepGoing -slowSpecThreshold 30 -tags e2e tests/e2e
 
 run: fmt vet ## Run a controller from your host.

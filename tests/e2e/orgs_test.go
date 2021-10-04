@@ -20,41 +20,73 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Listing Orgs", func() {
-	var orgs []hierarchicalNamespace
+var _ = Describe("Orgs", func() {
+	Describe("creating orgs", func() {
+		var orgName string
 
-	BeforeEach(func() {
-		orgs = []hierarchicalNamespace{}
-		for i := 1; i < 4; i++ {
-			orgDetails := createHierarchicalNamespace(rootNamespace, generateGUID("org"+strconv.Itoa(i)), repositories.OrgNameLabel)
-			orgs = append(orgs, orgDetails)
-			waitForSubnamespaceAnchor(rootNamespace, orgDetails.generatedName)
-		}
+		BeforeEach(func() {
+			orgName = generateGUID("org")
+		})
+
+		AfterEach(func() {
+			deleteSubnamespaceByLabel(rootNamespace, orgName)
+		})
+
+		It("creates an org", func() {
+			orgsUrl := apiServerRoot + "/v3/organizations"
+
+			body := fmt.Sprintf(`{ "name": "%s" }`, orgName)
+			req, err := http.NewRequest(http.MethodPost, orgsUrl, strings.NewReader(body))
+			Expect(err).NotTo(HaveOccurred())
+
+			resp, err := http.DefaultClient.Do(req)
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+
+			Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+			Expect(resp.Header["Content-Type"]).To(ConsistOf("application/json"))
+			responseMap := map[string]interface{}{}
+			Expect(json.NewDecoder(resp.Body).Decode(&responseMap)).To(Succeed())
+			Expect(responseMap["name"]).To(Equal(orgName))
+		})
 	})
 
-	AfterEach(func() {
-		for _, org := range orgs {
-			deleteSubnamespace(rootNamespace, org.generatedName)
-		}
-	})
+	Describe("listing orgs", func() {
+		var orgs []hierarchicalNamespace
 
-	It("returns all 3 orgs", func() {
-		Eventually(getOrgsFn()).Should(ContainElements(
-			MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[0].label)}),
-			MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[1].label)}),
-			MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[2].label)}),
-		))
-	})
+		BeforeEach(func() {
+			orgs = []hierarchicalNamespace{}
+			for i := 1; i < 4; i++ {
+				orgDetails := createHierarchicalNamespace(rootNamespace, generateGUID("org"+strconv.Itoa(i)), repositories.OrgNameLabel)
+				orgs = append(orgs, orgDetails)
+				waitForSubnamespaceAnchor(rootNamespace, orgDetails.generatedName)
+			}
+		})
 
-	When("org names are filtered", func() {
-		It("returns orgs 1 & 3", func() {
-			Eventually(getOrgsFn(orgs[0].label, orgs[2].label)).Should(ContainElements(
+		AfterEach(func() {
+			for _, org := range orgs {
+				deleteSubnamespace(rootNamespace, org.generatedName)
+			}
+		})
+
+		It("returns all 3 orgs", func() {
+			Eventually(getOrgsFn()).Should(ContainElements(
 				MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[0].label)}),
+				MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[1].label)}),
 				MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[2].label)}),
 			))
-			Consistently(getOrgsFn(orgs[0].label, orgs[2].label), "2s").ShouldNot(ContainElement(
-				MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[1].label)}),
-			))
+		})
+
+		When("org names are filtered", func() {
+			It("returns orgs 1 & 3", func() {
+				Eventually(getOrgsFn(orgs[0].label, orgs[2].label)).Should(ContainElements(
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[0].label)}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[2].label)}),
+				))
+				Consistently(getOrgsFn(orgs[0].label, orgs[2].label), "2s").ShouldNot(ContainElement(
+					MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[1].label)}),
+				))
+			})
 		})
 	})
 })

@@ -2,6 +2,7 @@ package repositories_test
 
 import (
 	"context"
+	"time"
 
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 
@@ -10,17 +11,18 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var _ = Describe("OrgRepository", func() {
-	Describe("ListOrgs", func() {
+	Describe("Create Org", func() {
 		var (
-			orgRepo                                                          *repositories.OrgRepo
-			ctx                                                              context.Context
-			rootNamespace                                                    string
-			org1Ns, org2Ns, org3Ns                                           *hnsv1alpha2.SubnamespaceAnchor
-			space11Ns, space12Ns, space21Ns, space22Ns, space31Ns, space32Ns *hnsv1alpha2.SubnamespaceAnchor
+			orgRepo       *repositories.OrgRepo
+			ctx           context.Context
+			rootNamespace string
 		)
 
 		BeforeEach(func() {
@@ -30,84 +32,98 @@ var _ = Describe("OrgRepository", func() {
 			orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient)
 
 			ctx = context.Background()
+		})
 
-			org1Ns = &hnsv1alpha2.SubnamespaceAnchor{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "org1",
-					Namespace:    rootNamespace,
-					Labels:       map[string]string{repositories.OrgNameLabel: "org1"},
-				},
-			}
-			org2Ns = &hnsv1alpha2.SubnamespaceAnchor{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "org2",
-					Namespace:    rootNamespace,
-					Labels:       map[string]string{repositories.OrgNameLabel: "org2"},
-				},
-			}
-			org3Ns = &hnsv1alpha2.SubnamespaceAnchor{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "org3",
-					Namespace:    rootNamespace,
-					Labels:       map[string]string{repositories.OrgNameLabel: "org3"},
-				},
-			}
-			Expect(k8sClient.Create(ctx, org1Ns)).To(Succeed())
-			Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: org1Ns.Name}})).To(Succeed())
-			Expect(k8sClient.Create(ctx, org2Ns)).To(Succeed())
-			Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: org2Ns.Name}})).To(Succeed())
-			Expect(k8sClient.Create(ctx, org3Ns)).To(Succeed())
-			Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: org3Ns.Name}})).To(Succeed())
+		It("creates a subnamespace anchor in the root namespace", func() {
+			org, err := orgRepo.CreateOrg(ctx, repositories.OrgRecord{
+				Name: "our-org",
+			})
+			Expect(err).NotTo(HaveOccurred())
 
-			space11Ns = &hnsv1alpha2.SubnamespaceAnchor{
+			namesRequirement, err := labels.NewRequirement(repositories.OrgNameLabel, selection.Equals, []string{"our-org"})
+			Expect(err).NotTo(HaveOccurred())
+			anchorList := hnsv1alpha2.SubnamespaceAnchorList{}
+			err = k8sClient.List(ctx, &anchorList, client.InNamespace(rootNamespace), client.MatchingLabelsSelector{
+				Selector: labels.NewSelector().Add(*namesRequirement),
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(anchorList.Items).To(HaveLen(1))
+
+			Expect(org.Name).To(Equal("our-org"))
+			Expect(org.GUID).To(Equal(string(anchorList.Items[0].UID)))
+			Expect(org.CreatedAt).To(BeTemporally("~", time.Now(), time.Second))
+			Expect(org.UpdatedAt).To(BeTemporally("~", time.Now(), time.Second))
+		})
+
+		When("the client fails to create the org", func() {
+			It("returns an error", func() {
+				_, err := orgRepo.CreateOrg(ctx, repositories.OrgRecord{
+					Name: "this-string-has-illegal-characters-ц",
+				})
+				Expect(err).To(HaveOccurred())
+			})
+		})
+	})
+
+	Describe("ListOrgs", func() {
+		var (
+			orgRepo       *repositories.OrgRepo
+			ctx           context.Context
+			rootNamespace string
+
+			org1Anchor, org2Anchor, org3Anchor                                                       *hnsv1alpha2.SubnamespaceAnchor
+			space11Anchor, space12Anchor, space21Anchor, space22Anchor, space31Anchor, space32Anchor *hnsv1alpha2.SubnamespaceAnchor
+		)
+
+		createOrgAnchor := func(name string) *hnsv1alpha2.SubnamespaceAnchor {
+			org := &hnsv1alpha2.SubnamespaceAnchor{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "space11",
-					Namespace:    org1Ns.Name,
-					Labels:       map[string]string{repositories.SpaceNameLabel: "space11"},
-				},
-			}
-			space12Ns = &hnsv1alpha2.SubnamespaceAnchor{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "space12",
-					Namespace:    org1Ns.Name,
-					Labels:       map[string]string{repositories.SpaceNameLabel: "space12"},
-				},
-			}
-			space21Ns = &hnsv1alpha2.SubnamespaceAnchor{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "space21",
-					Namespace:    org2Ns.Name,
-					Labels:       map[string]string{repositories.SpaceNameLabel: "space21"},
-				},
-			}
-			space22Ns = &hnsv1alpha2.SubnamespaceAnchor{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "space22",
-					Namespace:    org2Ns.Name,
-					Labels:       map[string]string{repositories.SpaceNameLabel: "space22"},
-				},
-			}
-			space31Ns = &hnsv1alpha2.SubnamespaceAnchor{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "space31",
-					Namespace:    org3Ns.Name,
-					Labels:       map[string]string{repositories.SpaceNameLabel: "space31"},
-				},
-			}
-			space32Ns = &hnsv1alpha2.SubnamespaceAnchor{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "space32",
-					Namespace:    org3Ns.Name,
-					Labels:       map[string]string{repositories.SpaceNameLabel: "space32"},
+					GenerateName: name,
+					Namespace:    rootNamespace,
+					Labels:       map[string]string{repositories.OrgNameLabel: name},
 				},
 			}
 
-			Expect(k8sClient.Create(ctx, space11Ns)).To(Succeed())
-			Expect(k8sClient.Create(ctx, space12Ns)).To(Succeed())
-			Expect(k8sClient.Create(ctx, space21Ns)).To(Succeed())
-			Expect(k8sClient.Create(ctx, space22Ns)).To(Succeed())
-			Expect(k8sClient.Create(ctx, space31Ns)).To(Succeed())
-			Expect(k8sClient.Create(ctx, space32Ns)).To(Succeed())
+			Expect(k8sClient.Create(ctx, org)).To(Succeed())
+			Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: org.Name}})).To(Succeed())
+
+			return org
+		}
+
+		createSpaceAnchor := func(name, orgName string) *hnsv1alpha2.SubnamespaceAnchor {
+			space := &hnsv1alpha2.SubnamespaceAnchor{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: name,
+					Namespace:    orgName,
+					Labels:       map[string]string{repositories.SpaceNameLabel: name},
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, space)).To(Succeed())
+
+			return space
+		}
+
+		BeforeEach(func() {
+			rootNamespace = generateGUID()
+			Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
+
+			orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient)
+
+			ctx = context.Background()
+
+			org1Anchor = createOrgAnchor("org1")
+			org2Anchor = createOrgAnchor("org2")
+			org3Anchor = createOrgAnchor("org3")
+
+			space11Anchor = createSpaceAnchor("space1", org1Anchor.Name)
+			space12Anchor = createSpaceAnchor("space2", org1Anchor.Name)
+
+			space21Anchor = createSpaceAnchor("space1", org2Anchor.Name)
+			space22Anchor = createSpaceAnchor("space3", org2Anchor.Name)
+
+			space31Anchor = createSpaceAnchor("space1", org3Anchor.Name)
+			space32Anchor = createSpaceAnchor("space4", org3Anchor.Name)
 		})
 
 		It("returns the 3 orgs", func() {
@@ -117,21 +133,21 @@ var _ = Describe("OrgRepository", func() {
 			Expect(orgs).To(ConsistOf(
 				repositories.OrgRecord{
 					Name:      "org1",
-					CreatedAt: org1Ns.CreationTimestamp.Time,
-					UpdatedAt: org1Ns.CreationTimestamp.Time,
-					GUID:      string(org1Ns.UID),
+					CreatedAt: org1Anchor.CreationTimestamp.Time,
+					UpdatedAt: org1Anchor.CreationTimestamp.Time,
+					GUID:      string(org1Anchor.UID),
 				},
 				repositories.OrgRecord{
 					Name:      "org2",
-					CreatedAt: org2Ns.CreationTimestamp.Time,
-					UpdatedAt: org2Ns.CreationTimestamp.Time,
-					GUID:      string(org2Ns.UID),
+					CreatedAt: org2Anchor.CreationTimestamp.Time,
+					UpdatedAt: org2Anchor.CreationTimestamp.Time,
+					GUID:      string(org2Anchor.UID),
 				},
 				repositories.OrgRecord{
 					Name:      "org3",
-					CreatedAt: org3Ns.CreationTimestamp.Time,
-					UpdatedAt: org3Ns.CreationTimestamp.Time,
-					GUID:      string(org3Ns.UID),
+					CreatedAt: org3Anchor.CreationTimestamp.Time,
+					UpdatedAt: org3Anchor.CreationTimestamp.Time,
+					GUID:      string(org3Anchor.UID),
 				},
 			))
 		})
@@ -144,15 +160,15 @@ var _ = Describe("OrgRepository", func() {
 				Expect(orgs).To(ConsistOf(
 					repositories.OrgRecord{
 						Name:      "org1",
-						CreatedAt: org1Ns.CreationTimestamp.Time,
-						UpdatedAt: org1Ns.CreationTimestamp.Time,
-						GUID:      string(org1Ns.UID),
+						CreatedAt: org1Anchor.CreationTimestamp.Time,
+						UpdatedAt: org1Anchor.CreationTimestamp.Time,
+						GUID:      string(org1Anchor.UID),
 					},
 					repositories.OrgRecord{
 						Name:      "org3",
-						CreatedAt: org3Ns.CreationTimestamp.Time,
-						UpdatedAt: org3Ns.CreationTimestamp.Time,
-						GUID:      string(org3Ns.UID),
+						CreatedAt: org3Anchor.CreationTimestamp.Time,
+						UpdatedAt: org3Anchor.CreationTimestamp.Time,
+						GUID:      string(org3Anchor.UID),
 					},
 				))
 			})
@@ -164,71 +180,101 @@ var _ = Describe("OrgRepository", func() {
 
 			Expect(spaces).To(ConsistOf(
 				repositories.SpaceRecord{
-					Name:             "space11",
-					CreatedAt:        space11Ns.CreationTimestamp.Time,
-					UpdatedAt:        space11Ns.CreationTimestamp.Time,
-					GUID:             string(space11Ns.UID),
-					OrganizationGUID: string(org1Ns.UID),
+					Name:             "space1",
+					CreatedAt:        space11Anchor.CreationTimestamp.Time,
+					UpdatedAt:        space11Anchor.CreationTimestamp.Time,
+					GUID:             string(space11Anchor.UID),
+					OrganizationGUID: string(org1Anchor.UID),
 				},
 				repositories.SpaceRecord{
-					Name:             "space12",
-					CreatedAt:        space12Ns.CreationTimestamp.Time,
-					UpdatedAt:        space12Ns.CreationTimestamp.Time,
-					GUID:             string(space12Ns.UID),
-					OrganizationGUID: string(org1Ns.UID),
+					Name:             "space2",
+					CreatedAt:        space12Anchor.CreationTimestamp.Time,
+					UpdatedAt:        space12Anchor.CreationTimestamp.Time,
+					GUID:             string(space12Anchor.UID),
+					OrganizationGUID: string(org1Anchor.UID),
 				},
 				repositories.SpaceRecord{
-					Name:             "space21",
-					CreatedAt:        space21Ns.CreationTimestamp.Time,
-					UpdatedAt:        space21Ns.CreationTimestamp.Time,
-					GUID:             string(space21Ns.UID),
-					OrganizationGUID: string(org2Ns.UID),
+					Name:             "space1",
+					CreatedAt:        space21Anchor.CreationTimestamp.Time,
+					UpdatedAt:        space21Anchor.CreationTimestamp.Time,
+					GUID:             string(space21Anchor.UID),
+					OrganizationGUID: string(org2Anchor.UID),
 				},
 				repositories.SpaceRecord{
-					Name:             "space22",
-					CreatedAt:        space22Ns.CreationTimestamp.Time,
-					UpdatedAt:        space22Ns.CreationTimestamp.Time,
-					GUID:             string(space22Ns.UID),
-					OrganizationGUID: string(org2Ns.UID),
+					Name:             "space3",
+					CreatedAt:        space22Anchor.CreationTimestamp.Time,
+					UpdatedAt:        space22Anchor.CreationTimestamp.Time,
+					GUID:             string(space22Anchor.UID),
+					OrganizationGUID: string(org2Anchor.UID),
 				},
 				repositories.SpaceRecord{
-					Name:             "space31",
-					CreatedAt:        space31Ns.CreationTimestamp.Time,
-					UpdatedAt:        space31Ns.CreationTimestamp.Time,
-					GUID:             string(space31Ns.UID),
-					OrganizationGUID: string(org3Ns.UID),
+					Name:             "space1",
+					CreatedAt:        space31Anchor.CreationTimestamp.Time,
+					UpdatedAt:        space31Anchor.CreationTimestamp.Time,
+					GUID:             string(space31Anchor.UID),
+					OrganizationGUID: string(org3Anchor.UID),
 				},
 				repositories.SpaceRecord{
-					Name:             "space32",
-					CreatedAt:        space32Ns.CreationTimestamp.Time,
-					UpdatedAt:        space32Ns.CreationTimestamp.Time,
-					GUID:             string(space32Ns.UID),
-					OrganizationGUID: string(org3Ns.UID),
+					Name:             "space4",
+					CreatedAt:        space32Anchor.CreationTimestamp.Time,
+					UpdatedAt:        space32Anchor.CreationTimestamp.Time,
+					GUID:             string(space32Anchor.UID),
+					OrganizationGUID: string(org3Anchor.UID),
 				},
 			))
 		})
 
 		When("filtering by org guids", func() {
 			It("only retruns the spaces belonging to the specified org guids", func() {
-				spaces, err := orgRepo.FetchSpaces(ctx, []string{string(org1Ns.UID), string(org3Ns.UID)}, []string{})
+				spaces, err := orgRepo.FetchSpaces(ctx, []string{string(org1Anchor.UID), string(org3Anchor.UID), "does-not-exist"}, []string{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(spaces).To(ConsistOf(
-					MatchFields(IgnoreExtras, Fields{"Name": Equal("space11")}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal("space12")}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal("space31")}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal("space32")}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal("space1"), "OrganizationGUID": Equal(string(org1Anchor.UID))}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal("space1"), "OrganizationGUID": Equal(string(org3Anchor.UID))}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal("space2")}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal("space4")}),
 				))
 			})
 		})
 
 		When("filtering by space names", func() {
 			It("only retruns the spaces matching the specified names", func() {
-				spaces, err := orgRepo.FetchSpaces(ctx, []string{}, []string{"space11", "space31", "space41"})
+				spaces, err := orgRepo.FetchSpaces(ctx, []string{}, []string{"space1", "space3", "does-not-exist"})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(spaces).To(ConsistOf(
-					MatchFields(IgnoreExtras, Fields{"Name": Equal("space11")}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal("space31")}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal("space1"), "OrganizationGUID": Equal(string(org1Anchor.UID))}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal("space1"), "OrganizationGUID": Equal(string(org2Anchor.UID))}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal("space1"), "OrganizationGUID": Equal(string(org3Anchor.UID))}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal("space3")}),
 				))
+			})
+		})
+
+		When("filtering by org guids and space names", func() {
+			It("only retruns the spaces matching the specified names", func() {
+				spaces, err := orgRepo.FetchSpaces(ctx, []string{string(org1Anchor.UID), string(org2Anchor.UID)}, []string{"space1", "space2", "space4"})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(spaces).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{"Name": Equal("space1"), "OrganizationGUID": Equal(string(org1Anchor.UID))}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal("space1"), "OrganizationGUID": Equal(string(org2Anchor.UID))}),
+					MatchFields(IgnoreExtras, Fields{"Name": Equal("space2")}),
+				))
+			})
+		})
+
+		When("filtering by space names that don't exist", func() {
+			It("only retruns the spaces matching the specified names", func() {
+				spaces, err := orgRepo.FetchSpaces(ctx, []string{}, []string{"does-not-exist", "still-does-not-exist"})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(spaces).To(BeEmpty())
+			})
+		})
+
+		When("filtering by org uids that don't exist", func() {
+			It("only retruns the spaces matching the specified names", func() {
+				spaces, err := orgRepo.FetchSpaces(ctx, []string{"does-not-exist", "still-does-not-exist"}, []string{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(spaces).To(BeEmpty())
 			})
 		})
 	})

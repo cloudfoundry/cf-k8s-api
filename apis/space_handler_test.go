@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"time"
 
 	"code.cloudfoundry.org/cf-k8s-api/apis"
@@ -52,7 +53,9 @@ var _ = Describe("Spaces", func() {
 				},
 			}, nil)
 
-			spaceHandler = apis.NewSpaceHandler(spaceRepo, rootURL)
+			serverURL, err := url.Parse(rootURL)
+			Expect(err).NotTo(HaveOccurred())
+			spaceHandler = apis.NewSpaceHandler(spaceRepo, *serverURL)
 			router = mux.NewRouter()
 			spaceHandler.RegisterRoutes(router)
 
@@ -130,7 +133,7 @@ var _ = Describe("Spaces", func() {
                     }
                 }
             ]
-        }`, rootURL)))
+        }`, defaultServerURL)))
 
 			Expect(spaceRepo.FetchSpacesCallCount()).To(Equal(1))
 			_, organizationGUIDs, names := spaceRepo.FetchSpacesArgsForCall(0)
