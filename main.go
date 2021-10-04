@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 
 	"code.cloudfoundry.org/cf-k8s-api/apis"
@@ -56,6 +57,11 @@ func main() {
 		panic(fmt.Sprintf("could not create privileged k8s client: %v", err))
 	}
 
+	serverURL, err := url.Parse(config.ServerURL)
+	if err != nil {
+		panic(fmt.Sprintf("could not parse server URL: %v", err))
+	}
+
 	handlers := []APIHandler{
 		apis.NewRootV3Handler(config.ServerURL),
 		apis.NewRootHandler(
@@ -65,14 +71,14 @@ func main() {
 		apis.NewResourceMatchesHandler(config.ServerURL),
 		apis.NewAppHandler(
 			ctrl.Log.WithName("AppHandler"),
-			config.ServerURL,
+			*serverURL,
 			&repositories.AppRepo{},
 			repositories.BuildClient,
 			k8sClientConfig,
 		),
 		apis.NewRouteHandler(
 			ctrl.Log.WithName("RouteHandler"),
-			config.ServerURL,
+			*serverURL,
 			&repositories.RouteRepo{},
 			&repositories.DomainRepo{},
 			&repositories.AppRepo{},
@@ -81,7 +87,7 @@ func main() {
 		),
 		apis.NewPackageHandler(
 			ctrl.Log.WithName("PackageHandler"),
-			config.ServerURL,
+			*serverURL,
 			&repositories.PackageRepo{},
 			&repositories.AppRepo{},
 			repositories.BuildClient,
@@ -97,11 +103,11 @@ func main() {
     ),
 		apis.NewOrgHandler(
 			repositories.NewOrgRepo(config.RootNamespace, privilegedClient),
-			config.ServerURL,
+			*serverURL,
 		),
 		apis.NewSpaceHandler(
 			repositories.NewOrgRepo(config.RootNamespace, privilegedClient),
-			config.ServerURL,
+			*serverURL,
 		),
 	}
 

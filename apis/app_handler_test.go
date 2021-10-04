@@ -3,8 +3,10 @@ package apis_test
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -74,9 +76,11 @@ func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
 		router = mux.NewRouter()
 		clientBuilder := new(fake.ClientBuilder)
 
+		serverURL, err := url.Parse(defaultServerURL)
+		g.Expect(err).NotTo(HaveOccurred())
 		apiHandler := NewAppHandler(
 			logf.Log.WithName(testAppHandlerLoggerName),
-			defaultServerURL,
+			*serverURL,
 			appRepo,
 			clientBuilder.Spy,
 			&rest.Config{},
@@ -99,7 +103,7 @@ func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns the App in the response", func() {
-			g.Expect(rr.Body.String()).To(MatchJSON(`{
+			g.Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
 				"guid": "`+appGUID+`",
 				"created_at": "",
 				"updated_at": "",
@@ -125,48 +129,48 @@ func testAppGetHandler(t *testing.T, when spec.G, it spec.S) {
 				},
 				"links": {
 				  "self": {
-					"href": "https://api.example.org/v3/apps/`+appGUID+`"
+					"href": "%[1]s/v3/apps/`+appGUID+`"
 				  },
 				  "environment_variables": {
-					"href": "https://api.example.org/v3/apps/`+appGUID+`/environment_variables"
+					"href": "%[1]s/v3/apps/`+appGUID+`/environment_variables"
 				  },
 				  "space": {
-					"href": "https://api.example.org/v3/spaces/`+spaceGUID+`"
+					"href": "%[1]s/v3/spaces/`+spaceGUID+`"
 				  },
 				  "processes": {
-					"href": "https://api.example.org/v3/apps/`+appGUID+`/processes"
+					"href": "%[1]s/v3/apps/`+appGUID+`/processes"
 				  },
 				  "packages": {
-					"href": "https://api.example.org/v3/apps/`+appGUID+`/packages"
+					"href": "%[1]s/v3/apps/`+appGUID+`/packages"
 				  },
 				  "current_droplet": {
-					"href": "https://api.example.org/v3/apps/`+appGUID+`/droplets/current"
+					"href": "%[1]s/v3/apps/`+appGUID+`/droplets/current"
 				  },
 				  "droplets": {
-					"href": "https://api.example.org/v3/apps/`+appGUID+`/droplets"
+					"href": "%[1]s/v3/apps/`+appGUID+`/droplets"
 				  },
 				  "tasks": {
-					"href": "https://api.example.org/v3/apps/`+appGUID+`/tasks"
+					"href": "%[1]s/v3/apps/`+appGUID+`/tasks"
 				  },
 				  "start": {
-					"href": "https://api.example.org/v3/apps/`+appGUID+`/actions/start",
+					"href": "%[1]s/v3/apps/`+appGUID+`/actions/start",
 					"method": "POST"
 				  },
 				  "stop": {
-					"href": "https://api.example.org/v3/apps/`+appGUID+`/actions/stop",
+					"href": "%[1]s/v3/apps/`+appGUID+`/actions/stop",
 					"method": "POST"
 				  },
 				  "revisions": {
-					"href": "https://api.example.org/v3/apps/`+appGUID+`/revisions"
+					"href": "%[1]s/v3/apps/`+appGUID+`/revisions"
 				  },
 				  "deployed_revisions": {
-					"href": "https://api.example.org/v3/apps/`+appGUID+`/revisions/deployed"
+					"href": "%[1]s/v3/apps/`+appGUID+`/revisions/deployed"
 				  },
 				  "features": {
-					"href": "https://api.example.org/v3/apps/`+appGUID+`/features"
+					"href": "%[1]s/v3/apps/`+appGUID+`/features"
 				  }
 				}
-			}`), "Response body matches response:")
+			}`, defaultServerURL)), "Response body matches response:")
 		})
 	})
 
@@ -221,9 +225,11 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		router = mux.NewRouter()
 
 		appRepo = new(fake.CFAppRepository)
+		serverURL, err := url.Parse(defaultServerURL)
+		g.Expect(err).NotTo(HaveOccurred())
 		apiHandler := NewAppHandler(
 			logf.Log.WithName(testAppHandlerLoggerName),
-			defaultServerURL,
+			*serverURL,
 			appRepo,
 			new(fake.ClientBuilder).Spy,
 			&rest.Config{},
@@ -560,7 +566,7 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns the \"created app\"(the mock response record) in the response", func() {
-				g.Expect(rr.Body.String()).To(MatchJSON(`{
+				g.Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
 					"guid": "`+appGUID+`",
 					"created_at": "",
 					"updated_at": "",
@@ -586,48 +592,48 @@ func testAppCreateHandler(t *testing.T, when spec.G, it spec.S) {
 					},
 					"links": {
 					  "self": {
-						"href": "https://api.example.org/v3/apps/`+appGUID+`"
+						"href": "%[1]s/v3/apps/`+appGUID+`"
 					  },
 					  "environment_variables": {
-						"href": "https://api.example.org/v3/apps/`+appGUID+`/environment_variables"
+						"href": "%[1]s/v3/apps/`+appGUID+`/environment_variables"
 					  },
 					  "space": {
-						"href": "https://api.example.org/v3/spaces/`+spaceGUID+`"
+						"href": "%[1]s/v3/spaces/`+spaceGUID+`"
 					  },
 					  "processes": {
-						"href": "https://api.example.org/v3/apps/`+appGUID+`/processes"
+						"href": "%[1]s/v3/apps/`+appGUID+`/processes"
 					  },
 					  "packages": {
-						"href": "https://api.example.org/v3/apps/`+appGUID+`/packages"
+						"href": "%[1]s/v3/apps/`+appGUID+`/packages"
 					  },
 					  "current_droplet": {
-						"href": "https://api.example.org/v3/apps/`+appGUID+`/droplets/current"
+						"href": "%[1]s/v3/apps/`+appGUID+`/droplets/current"
 					  },
 					  "droplets": {
-						"href": "https://api.example.org/v3/apps/`+appGUID+`/droplets"
+						"href": "%[1]s/v3/apps/`+appGUID+`/droplets"
 					  },
 					  "tasks": {
-						"href": "https://api.example.org/v3/apps/`+appGUID+`/tasks"
+						"href": "%[1]s/v3/apps/`+appGUID+`/tasks"
 					  },
 					  "start": {
-						"href": "https://api.example.org/v3/apps/`+appGUID+`/actions/start",
+						"href": "%[1]s/v3/apps/`+appGUID+`/actions/start",
 						"method": "POST"
 					  },
 					  "stop": {
-						"href": "https://api.example.org/v3/apps/`+appGUID+`/actions/stop",
+						"href": "%[1]s/v3/apps/`+appGUID+`/actions/stop",
 						"method": "POST"
 					  },
 					  "revisions": {
-						"href": "https://api.example.org/v3/apps/`+appGUID+`/revisions"
+						"href": "%[1]s/v3/apps/`+appGUID+`/revisions"
 					  },
 					  "deployed_revisions": {
-						"href": "https://api.example.org/v3/apps/`+appGUID+`/revisions/deployed"
+						"href": "%[1]s/v3/apps/`+appGUID+`/revisions/deployed"
 					  },
 					  "features": {
-						"href": "https://api.example.org/v3/apps/`+appGUID+`/features"
+						"href": "%[1]s/v3/apps/`+appGUID+`/features"
 					  }
 					}
-				}`), "Response body matches response:")
+				}`, defaultServerURL)), "Response body matches response:")
 			})
 		})
 
@@ -791,9 +797,11 @@ func testAppListHandler(t *testing.T, when spec.G, it spec.S) {
 		router = mux.NewRouter()
 		clientBuilder := new(fake.ClientBuilder)
 
+		serverURL, err := url.Parse(defaultServerURL)
+		g.Expect(err).NotTo(HaveOccurred())
 		apiHandler := NewAppHandler(
 			logf.Log.WithName(testAppHandlerLoggerName),
-			defaultServerURL,
+			*serverURL,
 			appRepo,
 			clientBuilder.Spy,
 			&rest.Config{},
@@ -816,15 +824,15 @@ func testAppListHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns the Pagination Data and App Resources in the response", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
+			g.Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(`{
 				"pagination": {
 				  "total_results": 2,
 				  "total_pages": 1,
 				  "first": {
-					"href": "https://api.example.org/v3/apps?page=1"
+					"href": "%[1]s/v3/apps?page=1"
 				  },
 				  "last": {
-					"href": "https://api.example.org/v3/apps?page=1"
+					"href": "%[1]s/v3/apps?page=1"
 				  },
 				  "next": null,
 				  "previous": null
@@ -856,45 +864,45 @@ func testAppListHandler(t *testing.T, when spec.G, it spec.S) {
 						},
 						"links": {
 						  "self": {
-							"href": "https://api.example.org/v3/apps/first-test-app-guid"
+							"href": "%[1]s/v3/apps/first-test-app-guid"
 						  },
 						  "environment_variables": {
-							"href": "https://api.example.org/v3/apps/first-test-app-guid/environment_variables"
+							"href": "%[1]s/v3/apps/first-test-app-guid/environment_variables"
 						  },
 						  "space": {
-							"href": "https://api.example.org/v3/spaces/test-space-guid"
+							"href": "%[1]s/v3/spaces/test-space-guid"
 						  },
 						  "processes": {
-							"href": "https://api.example.org/v3/apps/first-test-app-guid/processes"
+							"href": "%[1]s/v3/apps/first-test-app-guid/processes"
 						  },
 						  "packages": {
-							"href": "https://api.example.org/v3/apps/first-test-app-guid/packages"
+							"href": "%[1]s/v3/apps/first-test-app-guid/packages"
 						  },
 						  "current_droplet": {
-							"href": "https://api.example.org/v3/apps/first-test-app-guid/droplets/current"
+							"href": "%[1]s/v3/apps/first-test-app-guid/droplets/current"
 						  },
 						  "droplets": {
-							"href": "https://api.example.org/v3/apps/first-test-app-guid/droplets"
+							"href": "%[1]s/v3/apps/first-test-app-guid/droplets"
 						  },
 						  "tasks": {
-							"href": "https://api.example.org/v3/apps/first-test-app-guid/tasks"
+							"href": "%[1]s/v3/apps/first-test-app-guid/tasks"
 						  },
 						  "start": {
-							"href": "https://api.example.org/v3/apps/first-test-app-guid/actions/start",
+							"href": "%[1]s/v3/apps/first-test-app-guid/actions/start",
 							"method": "POST"
 						  },
 						  "stop": {
-							"href": "https://api.example.org/v3/apps/first-test-app-guid/actions/stop",
+							"href": "%[1]s/v3/apps/first-test-app-guid/actions/stop",
 							"method": "POST"
 						  },
 						  "revisions": {
-							"href": "https://api.example.org/v3/apps/first-test-app-guid/revisions"
+							"href": "%[1]s/v3/apps/first-test-app-guid/revisions"
 						  },
 						  "deployed_revisions": {
-							"href": "https://api.example.org/v3/apps/first-test-app-guid/revisions/deployed"
+							"href": "%[1]s/v3/apps/first-test-app-guid/revisions/deployed"
 						  },
 						  "features": {
-							"href": "https://api.example.org/v3/apps/first-test-app-guid/features"
+							"href": "%[1]s/v3/apps/first-test-app-guid/features"
 						  }
 						}
 					},
@@ -924,50 +932,50 @@ func testAppListHandler(t *testing.T, when spec.G, it spec.S) {
 						},
 						"links": {
 						  "self": {
-							"href": "https://api.example.org/v3/apps/second-test-app-guid"
+							"href": "%[1]s/v3/apps/second-test-app-guid"
 						  },
 						  "environment_variables": {
-							"href": "https://api.example.org/v3/apps/second-test-app-guid/environment_variables"
+							"href": "%[1]s/v3/apps/second-test-app-guid/environment_variables"
 						  },
 						  "space": {
-							"href": "https://api.example.org/v3/spaces/test-space-guid"
+							"href": "%[1]s/v3/spaces/test-space-guid"
 						  },
 						  "processes": {
-							"href": "https://api.example.org/v3/apps/second-test-app-guid/processes"
+							"href": "%[1]s/v3/apps/second-test-app-guid/processes"
 						  },
 						  "packages": {
-							"href": "https://api.example.org/v3/apps/second-test-app-guid/packages"
+							"href": "%[1]s/v3/apps/second-test-app-guid/packages"
 						  },
 						  "current_droplet": {
-							"href": "https://api.example.org/v3/apps/second-test-app-guid/droplets/current"
+							"href": "%[1]s/v3/apps/second-test-app-guid/droplets/current"
 						  },
 						  "droplets": {
-							"href": "https://api.example.org/v3/apps/second-test-app-guid/droplets"
+							"href": "%[1]s/v3/apps/second-test-app-guid/droplets"
 						  },
 						  "tasks": {
-							"href": "https://api.example.org/v3/apps/second-test-app-guid/tasks"
+							"href": "%[1]s/v3/apps/second-test-app-guid/tasks"
 						  },
 						  "start": {
-							"href": "https://api.example.org/v3/apps/second-test-app-guid/actions/start",
+							"href": "%[1]s/v3/apps/second-test-app-guid/actions/start",
 							"method": "POST"
 						  },
 						  "stop": {
-							"href": "https://api.example.org/v3/apps/second-test-app-guid/actions/stop",
+							"href": "%[1]s/v3/apps/second-test-app-guid/actions/stop",
 							"method": "POST"
 						  },
 						  "revisions": {
-							"href": "https://api.example.org/v3/apps/second-test-app-guid/revisions"
+							"href": "%[1]s/v3/apps/second-test-app-guid/revisions"
 						  },
 						  "deployed_revisions": {
-							"href": "https://api.example.org/v3/apps/second-test-app-guid/revisions/deployed"
+							"href": "%[1]s/v3/apps/second-test-app-guid/revisions/deployed"
 						  },
 						  "features": {
-							"href": "https://api.example.org/v3/apps/second-test-app-guid/features"
+							"href": "%[1]s/v3/apps/second-test-app-guid/features"
 						  }
 						}
 					}
 				]
-			}`), "Response body matches response:")
+			}`, defaultServerURL)), "Response body matches response:")
 		})
 	})
 
@@ -988,21 +996,21 @@ func testAppListHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns a CF API formatted Error response", func() {
-			g.Expect(rr.Body.String()).Should(MatchJSON(`{
+			g.Expect(rr.Body.String()).Should(MatchJSON(fmt.Sprintf(`{
 				"pagination": {
 				  "total_results": 0,
 				  "total_pages": 1,
 				  "first": {
-					"href": "https://api.example.org/v3/apps?page=1"
+					"href": "%[1]s/v3/apps?page=1"
 				  },
 				  "last": {
-					"href": "https://api.example.org/v3/apps?page=1"
+					"href": "%[1]s/v3/apps?page=1"
 				  },
 				  "next": null,
 				  "previous": null
 				},
 				"resources": []
-			}`), "Response body matches response:")
+			}`, defaultServerURL)), "Response body matches response:")
 		})
 	})
 

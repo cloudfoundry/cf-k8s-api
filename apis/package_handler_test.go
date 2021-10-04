@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -91,9 +92,11 @@ func testPackageCreateHandler(t *testing.T, when spec.G, it spec.S) {
 
 		clientBuilder = new(fake.ClientBuilder)
 
+		serverURL, err := url.Parse(defaultServerURL)
+		g.Expect(err).NotTo(HaveOccurred())
 		apiHandler := NewPackageHandler(
 			logf.Log.WithName(testPackageHandlerLoggerName),
-			defaultServerURL,
+			*serverURL,
 			packageRepo,
 			appRepo,
 			clientBuilder.Spy,
@@ -422,9 +425,11 @@ func testPackageUploadHandler(t *testing.T, when spec.G, it spec.S) {
 		appRepo = new(fake.CFAppRepository)
 		clientBuilder = new(fake.ClientBuilder)
 
+		serverURL, err := url.Parse(defaultServerURL)
+		g.Expect(err).NotTo(HaveOccurred())
 		apiHandler := NewPackageHandler(
 			logf.Log.WithName(testPackageHandlerLoggerName),
-			defaultServerURL,
+			*serverURL,
 			packageRepo,
 			appRepo,
 			clientBuilder.Spy,

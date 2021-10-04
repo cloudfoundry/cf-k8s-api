@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -72,9 +73,11 @@ func testRouteGetHandler(t *testing.T, when spec.G, it spec.S) {
 			Name: "example.org",
 		}, nil)
 
+		serverURL, err := url.Parse(defaultServerURL)
+		g.Expect(err).NotTo(HaveOccurred())
 		routeHandler := NewRouteHandler(
 			logf.Log.WithName("TestRouteHandler"),
-			defaultServerURL,
+			*serverURL,
 			routeRepo,
 			domainRepo,
 			appRepo,
@@ -83,7 +86,6 @@ func testRouteGetHandler(t *testing.T, when spec.G, it spec.S) {
 		)
 		routeHandler.RegisterRoutes(router)
 
-		var err error
 		req, err = http.NewRequest("GET", fmt.Sprintf("/v3/routes/%s", testRouteGUID), nil)
 		g.Expect(err).NotTo(HaveOccurred())
 	})
@@ -105,7 +107,7 @@ func testRouteGetHandler(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns the Route in the response", func() {
-			expectedBody := `{
+			expectedBody := fmt.Sprintf(`{
 				"guid": "test-route-guid",
 				"port": null,
 				"path": "",
@@ -133,19 +135,19 @@ func testRouteGetHandler(t *testing.T, when spec.G, it spec.S) {
 				},
 				"links": {
 					"self":{
-						"href": "https://api.example.org/v3/routes/test-route-guid"
+						"href": "%[1]s/v3/routes/test-route-guid"
 					},
 					"space":{
-						"href": "https://api.example.org/v3/spaces/test-space-guid"
+						"href": "%[1]s/v3/spaces/test-space-guid"
 					},
 					"domain":{
-						"href": "https://api.example.org/v3/domains/test-domain-guid"
+						"href": "%[1]s/v3/domains/test-domain-guid"
 					},
 					"destinations":{
-						"href": "https://api.example.org/v3/routes/test-route-guid/destinations"
+						"href": "%[1]s/v3/routes/test-route-guid/destinations"
 					}
 				}
-			}`
+			}`, defaultServerURL)
 
 			g.Expect(rr.Body.String()).To(MatchJSON(expectedBody), "Response body matches response:")
 		})
@@ -233,9 +235,11 @@ func testRouteCreateHandler(t *testing.T, when spec.G, it spec.S) {
 		appRepo = new(fake.CFAppRepository)
 		clientBuilder = new(fake.ClientBuilder)
 
+		serverURL, err := url.Parse(defaultServerURL)
+		g.Expect(err).NotTo(HaveOccurred())
 		apiHandler := NewRouteHandler(
 			logf.Log.WithName("TestRouteHandler"),
-			defaultServerURL,
+			*serverURL,
 			routeRepo,
 			domainRepo,
 			appRepo,
@@ -301,7 +305,7 @@ func testRouteCreateHandler(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns the created route in the response", func() {
-				g.Expect(rr.Body.String()).To(MatchJSON(`{
+				g.Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
 					"guid": "test-route-guid",
 					"protocol": "http",
 					"port": null,
@@ -329,19 +333,19 @@ func testRouteCreateHandler(t *testing.T, when spec.G, it spec.S) {
 					},
 					"links": {
 						"self": {
-							"href": "https://api.example.org/v3/routes/test-route-guid"
+							"href": "%[1]s/v3/routes/test-route-guid"
 						},
 						"space": {
-							"href": "https://api.example.org/v3/spaces/test-space-guid"
+							"href": "%[1]s/v3/spaces/test-space-guid"
 						},
 						"domain": {
-							"href": "https://api.example.org/v3/domains/test-domain-guid"
+							"href": "%[1]s/v3/domains/test-domain-guid"
 						},
 						"destinations": {
-							"href": "https://api.example.org/v3/routes/test-route-guid/destinations"
+							"href": "%[1]s/v3/routes/test-route-guid/destinations"
 						}
 					}
-				}`), "Response body mismatch")
+				}`, defaultServerURL)), "Response body mismatch")
 			})
 		})
 

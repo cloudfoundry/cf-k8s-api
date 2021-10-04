@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
 
 	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
@@ -33,7 +34,7 @@ type CFPackageRepository interface {
 
 type PackageHandler struct {
 	logger      logr.Logger
-	serverURL   string
+	serverURL   url.URL
 	packageRepo CFPackageRepository
 	appRepo     CFAppRepository
 	k8sConfig   *rest.Config
@@ -42,7 +43,7 @@ type PackageHandler struct {
 
 func NewPackageHandler(
 	logger logr.Logger,
-	serverURL string,
+	serverURL url.URL,
 	packageRepo CFPackageRepository,
 	appRepo CFAppRepository,
 	buildClient ClientBuilder,

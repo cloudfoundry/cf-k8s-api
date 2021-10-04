@@ -11,12 +11,14 @@ import (
 	"testing"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-api/repositories"
 	"github.com/hashicorp/go-uuid"
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -156,13 +158,10 @@ func createHierarchicalNamespace(parentName, cfName, labelKey string) hierarchic
 
 func deleteSubnamespace(parent, name string) {
 	ctx := context.Background()
-
-	anchor := hnsv1alpha2.SubnamespaceAnchor{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: parent,
-			Name:      name,
-		},
-	}
-	err := k8sClient.Delete(ctx, &anchor)
+	namesRequirement, err := labels.NewRequirement(repositories.OrgNameLabel, selection.Equals, []string{"our-org"})
+	g.Expect(err).NotTo(HaveOccurred())
+	err = k8sClient.DeleteAllOf(ctx, &hnsv1alpha2.SubnamespaceAnchor{}, client.InNamespace(rootNamespace), client.MatchingLabelsSelector{
+		Selector: labels.NewSelector().Add(*namesRequirement),
+	})
 	g.Expect(err).NotTo(HaveOccurred())
 }

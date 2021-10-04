@@ -21,6 +21,36 @@ import (
 	"github.com/sclevine/spec"
 )
 
+var _ = SuiteDescribe("creating orgs", func(t *testing.T, when spec.G, it spec.S) {
+	var orgName string
+
+	it.Before(func() {
+		orgName = generateGUID("org")
+	})
+
+	it.After(func() {
+		deleteSubnamespace(rootNamespace, orgName)
+	})
+
+	it("creates an org", func() {
+		orgsUrl := apiServerRoot + "/v3/organizations"
+
+		body := fmt.Sprintf(`{ "name": "%s" }`, orgName)
+		req, err := http.NewRequest(http.MethodPost, orgsUrl, strings.NewReader(body))
+		g.Expect(err).NotTo(HaveOccurred())
+
+		resp, err := http.DefaultClient.Do(req)
+		g.Expect(err).NotTo(HaveOccurred())
+		defer resp.Body.Close()
+
+		g.Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+		g.Expect(resp.Header["Content-Type"]).To(ConsistOf("application/json"))
+		responseMap := map[string]interface{}{}
+		g.Expect(json.NewDecoder(resp.Body).Decode(&responseMap)).To(Succeed())
+		g.Expect(responseMap["name"]).To(Equal(orgName))
+	})
+})
+
 var _ = SuiteDescribe("listing orgs", func(t *testing.T, when spec.G, it spec.S) {
 	var orgs []hierarchicalNamespace
 

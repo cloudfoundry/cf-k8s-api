@@ -7,7 +7,7 @@ metadata:
   name: cf-admin-clusterrole
 rules:
 - apiGroups:
-  - ""
+    - ""
   resources:
   - namespaces
   verbs:
@@ -15,7 +15,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - networking.cloudfoundry.org
+    - networking.cloudfoundry.org
   resources:
   - cfdomains
   verbs:
@@ -27,13 +27,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - networking.cloudfoundry.org
+    - networking.cloudfoundry.org
   resources:
   - cfdomains/status
   verbs:
   - get
 - apiGroups:
-  - networking.cloudfoundry.org
+    - networking.cloudfoundry.org
   resources:
   - cfroutes
   verbs:
@@ -45,13 +45,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - networking.cloudfoundry.org
+    - networking.cloudfoundry.org
   resources:
   - cfroutes/status
   verbs:
   - get
 - apiGroups:
-  - workloads.cloudfoundry.org
+    - workloads.cloudfoundry.org
   resources:
   - cfapps
   verbs:
@@ -63,13 +63,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - workloads.cloudfoundry.org
+    - workloads.cloudfoundry.org
   resources:
   - cfapps/status
   verbs:
   - get
 - apiGroups:
-  - workloads.cloudfoundry.org
+    - workloads.cloudfoundry.org
   resources:
   - cfpackages
   verbs:
@@ -81,7 +81,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - workloads.cloudfoundry.org
+    - workloads.cloudfoundry.org
   resources:
   - cfpackages/status
   verbs:
@@ -92,3 +92,4 @@ rules:
   - subnamespaceanchors
   verbs:
   - list
+  - create

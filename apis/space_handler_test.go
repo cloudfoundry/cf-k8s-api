@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
@@ -59,7 +60,10 @@ func testListingSpaces(t *testing.T, when spec.G, it spec.S) {
 			},
 		}, nil)
 
-		spaceHandler = apis.NewSpaceHandler(spaceRepo, rootURL)
+		serverURL, err := url.Parse(defaultServerURL)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		spaceHandler = apis.NewSpaceHandler(spaceRepo, *serverURL)
 		router = mux.NewRouter()
 		spaceHandler.RegisterRoutes(router)
 
@@ -137,7 +141,7 @@ func testListingSpaces(t *testing.T, when spec.G, it spec.S) {
                     }
                 }
             ]
-        }`, rootURL)))
+        }`, defaultServerURL)))
 
 		g.Expect(spaceRepo.FetchSpacesCallCount()).To(Equal(1))
 		_, organizationGUIDs, names := spaceRepo.FetchSpacesArgsForCall(0)
