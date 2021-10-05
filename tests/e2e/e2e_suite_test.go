@@ -49,10 +49,6 @@ var _ = BeforeSuite(func() {
 	ensureServerIsUp()
 })
 
-var _ = AfterSuite(func() {
-
-})
-
 func mustHaveEnv(key string) string {
 	val, ok := os.LookupEnv(key)
 	Expect(ok).To(BeTrue(), "must set env var %q", key)
