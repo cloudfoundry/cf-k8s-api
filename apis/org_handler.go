@@ -22,7 +22,6 @@ const (
 //counterfeiter:generate -o fake -fake-name CFOrgRepository . CFOrgRepository
 
 type CFOrgRepository interface {
-	// TODO: pass received credentials to OrgRepo so it can create user-auth'ed k8s client
 	CreateOrg(context.Context, repositories.OrgRecord) (repositories.OrgRecord, error)
 	FetchOrgs(context.Context, []string) ([]repositories.OrgRecord, error)
 }

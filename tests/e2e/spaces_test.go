@@ -39,10 +39,10 @@ var _ = SuiteDescribe("listing spaces", func(t *testing.T, when spec.G, it spec.
 	it.After(func() {
 		for _, org := range orgs {
 			for _, space := range org.children {
-				deleteSubnamespace(org.generatedName, space.generatedName)
+				deleteSpace(org.generatedName, space.generatedName)
 				waitForNamespaceDeletion(space.generatedName)
 			}
-			deleteSubnamespace(rootNamespace, org.generatedName)
+			deleteOrg(org.generatedName)
 		}
 	})
 

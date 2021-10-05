@@ -4,6 +4,7 @@
 package e2e_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -19,6 +20,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
+	"sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
 var _ = SuiteDescribe("creating orgs", func(t *testing.T, when spec.G, it spec.S) {
@@ -29,7 +31,7 @@ var _ = SuiteDescribe("creating orgs", func(t *testing.T, when spec.G, it spec.S
 	})
 
 	it.After(func() {
-		deleteSubnamespace(rootNamespace, orgName)
+		deleteOrg(orgName)
 	})
 
 	it("creates an org", func() {
@@ -48,6 +50,18 @@ var _ = SuiteDescribe("creating orgs", func(t *testing.T, when spec.G, it spec.S
 		responseMap := map[string]interface{}{}
 		g.Expect(json.NewDecoder(resp.Body).Decode(&responseMap)).To(Succeed())
 		g.Expect(responseMap["name"]).To(Equal(orgName))
+
+		subnamespaceAnchorList := &v1alpha2.SubnamespaceAnchorList{}
+		err = k8sClient.List(context.Background(), subnamespaceAnchorList)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		g.Expect(subnamespaceAnchorList.Items).To(ContainElement(
+			MatchFields(IgnoreExtras, Fields{
+				"ObjectMeta": MatchFields(IgnoreExtras, Fields{
+					"Labels": HaveKeyWithValue(repositories.OrgNameLabel, orgName),
+				}),
+			}),
+		))
 	})
 })
 
@@ -64,7 +78,7 @@ var _ = SuiteDescribe("listing orgs", func(t *testing.T, when spec.G, it spec.S)
 
 	it.After(func() {
 		for _, org := range orgs {
-			deleteSubnamespace(rootNamespace, org.generatedName)
+			deleteOrg(org.generatedName)
 		}
 	})
 
