@@ -10,18 +10,17 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"testing"
 
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 
+	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sclevine/spec"
 )
 
-var _ = SuiteDescribe("listing spaces", func(t *testing.T, when spec.G, it spec.S) {
+var _ = Describe("Spaces", func() {
 	var orgs []hierarchicalNamespace
 
-	it.Before(func() {
+	BeforeEach(func() {
 		for i := 1; i <= 3; i++ {
 			orgDetails := createHierarchicalNamespace(rootNamespace, generateGUID("org"+strconv.Itoa(i)), repositories.OrgNameLabel)
 			waitForSubnamespaceAnchor(rootNamespace, orgDetails.generatedName)
@@ -36,28 +35,28 @@ var _ = SuiteDescribe("listing spaces", func(t *testing.T, when spec.G, it spec.
 		}
 	})
 
-	it.After(func() {
+	AfterEach(func() {
 		for _, org := range orgs {
 			for _, space := range org.children {
-				deleteSpace(org.generatedName, space.generatedName)
+				deleteSubnamespaceAnchor(org.generatedName, space.generatedName)
 				waitForNamespaceDeletion(space.generatedName)
 			}
 			deleteOrg(org.generatedName)
 		}
 	})
 
-	it("lists all the spaces", func() {
+	It("lists all the spaces", func() {
 		responseBody, err := getSpaces()
-		g.Expect(err).NotTo(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 
 		response := map[string]interface{}{}
-		g.Expect(json.Unmarshal([]byte(responseBody), &response)).To(Succeed())
+		Expect(json.Unmarshal([]byte(responseBody), &response)).To(Succeed())
 
 		pagination, ok := response["pagination"].(map[string]interface{})
-		g.Expect(ok).To(BeTrue())
+		Expect(ok).To(BeTrue())
 
-		g.Expect(pagination["total_results"]).To(BeNumerically("==", 6))
-		g.Expect(response["resources"]).To(ConsistOf(
+		Expect(pagination["total_results"]).To(BeNumerically("==", 6))
+		Expect(response["resources"]).To(ConsistOf(
 			HaveKeyWithValue("name", orgs[0].children[0].label),
 			HaveKeyWithValue("name", orgs[0].children[1].label),
 			HaveKeyWithValue("name", orgs[1].children[0].label),
@@ -67,15 +66,15 @@ var _ = SuiteDescribe("listing spaces", func(t *testing.T, when spec.G, it spec.
 		))
 	})
 
-	when("filtering by organization GUIDs", func() {
-		it("only lists spaces beloging to the orgs", func() {
+	When("filtering by organization GUIDs", func() {
+		It("only lists spaces beloging to the orgs", func() {
 			respJSON, err := getSpacesWithQuery(map[string]string{"organization_guids": fmt.Sprintf("%s,%s", orgs[0].uid, orgs[2].uid)})
-			g.Expect(err).NotTo(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 			var resp map[string]interface{}
-			g.Expect(json.Unmarshal([]byte(respJSON), &resp)).To(Succeed())
+			Expect(json.Unmarshal([]byte(respJSON), &resp)).To(Succeed())
 
-			g.Expect(resp).To(HaveKey("resources"))
-			g.Expect(resp["resources"]).To(ConsistOf(
+			Expect(resp).To(HaveKey("resources"))
+			Expect(resp["resources"]).To(ConsistOf(
 				HaveKeyWithValue("name", orgs[0].children[0].label),
 				HaveKeyWithValue("name", orgs[0].children[1].label),
 				HaveKeyWithValue("name", orgs[2].children[0].label),

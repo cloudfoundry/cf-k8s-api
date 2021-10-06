@@ -155,7 +155,7 @@ func testListingSpaces(t *testing.T, when spec.G, it spec.S) {
 			router.ServeHTTP(rr, req)
 		})
 
-		itRespondsWithUnknownError(it, g, func() *httptest.ResponseRecorder { return rr })
+		itRespondsWithUnknownError(func() *httptest.ResponseRecorder { return rr })
 	})
 
 	when("organization_guids are provided as a comma-separated list", func() {

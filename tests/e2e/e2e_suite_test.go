@@ -144,7 +144,7 @@ func deleteOrg(name string) {
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func deleteSpace(org, name string) {
+func deleteSubnamespaceAnchor(org, name string) {
 	ctx := context.Background()
 	anchor := hnsv1alpha2.SubnamespaceAnchor{
 		ObjectMeta: metav1.ObjectMeta{
