@@ -50,7 +50,7 @@ func ForDroplet(dropletRecord repositories.DropletRecord, baseURL string) Drople
 			},
 		},
 		ExecutionMetadata: "",
-		Buildpacks:        make([]BuildpackData, 0),
+		Buildpacks:        []BuildpackData{},
 		ProcessTypes:      dropletRecord.ProcessTypes,
 		Stack:             dropletRecord.Stack,
 		Relationships: Relationships{
@@ -65,16 +65,16 @@ func ForDroplet(dropletRecord repositories.DropletRecord, baseURL string) Drople
 			Annotations: map[string]string{},
 		},
 		Links: map[string]*Link{
-			"self": &Link{
+			"self": {
 				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/droplets/%s", dropletRecord.GUID)),
 			},
-			"package": &Link{
+			"package": {
 				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/packages/%s", dropletRecord.PackageGUID)),
 			},
-			"app": &Link{
+			"app": {
 				HREF: prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s", dropletRecord.AppGUID)),
 			},
-			"assign_current_droplet": &Link{
+			"assign_current_droplet": {
 				HREF:   prefixedLinkURL(baseURL, fmt.Sprintf("v3/apps/%s/relationships/current_droplet", dropletRecord.AppGUID)),
 				Method: "PATCH",
 			},

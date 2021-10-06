@@ -53,12 +53,12 @@ func (r *DropletRepo) returnDroplet(builds []workloadsv1alpha1.CFBuild) (Droplet
 	succeededStatus := getConditionValue(&cfBuild.Status.Conditions, SucceededConditionType)
 	if stagingStatus == metav1.ConditionFalse &&
 		succeededStatus == metav1.ConditionTrue {
-		return r.cfBuildToDropletRecord(cfBuild), nil
+		return cfBuildToDropletRecord(cfBuild), nil
 	}
 	return DropletRecord{}, NotFoundError{}
 }
 
-func (r *DropletRepo) cfBuildToDropletRecord(cfBuild workloadsv1alpha1.CFBuild) DropletRecord {
+func cfBuildToDropletRecord(cfBuild workloadsv1alpha1.CFBuild) DropletRecord {
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfBuild.ObjectMeta)
 	processTypesMap := make(map[string]string)
 	processTypesArrayObject := cfBuild.Status.BuildDropletStatus.ProcessTypes

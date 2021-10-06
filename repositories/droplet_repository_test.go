@@ -18,7 +18,7 @@ import (
 )
 
 var _ = Describe("DropletRepository", func() {
-	Describe("GetDroplet", func() {
+	Describe("FetchDroplet", func() {
 		var (
 			testCtx     context.Context
 			dropletRepo *DropletRepo
@@ -81,11 +81,13 @@ var _ = Describe("DropletRepository", func() {
 		})
 
 		When("on the happy path", func() {
+
 			When("status.BuildDropletStatus is set", func() {
 				var (
 					dropletRecord DropletRecord
 					fetchErr      error
 				)
+
 				BeforeEach(func() {
 					meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
 						Type:    "Staging",
@@ -123,6 +125,7 @@ var _ = Describe("DropletRepository", func() {
 					// Update Build Status based on changes made to local copy
 					Expect(k8sClient.Status().Update(testCtx, build)).To(Succeed())
 				})
+
 				It("should eventually return a record with state : \"STAGED\" set", func() {
 					Eventually(func() string {
 						dropletRecord, fetchErr = dropletRepo.FetchDroplet(testCtx, client, buildGUID)
@@ -132,27 +135,33 @@ var _ = Describe("DropletRepository", func() {
 						return dropletRecord.State
 					}, 10*time.Second, 250*time.Millisecond).Should(Equal("STAGED"), "the returned record State was not STAGED")
 				})
+
 				It("returns a record with a CreatedAt field from the CR", func() {
 					createdAt, err := time.Parse(time.RFC3339, dropletRecord.CreatedAt)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(createdAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 				})
+
 				It("returns a record with a UpdatedAt field from the CR", func() {
 					updatedAt, err := time.Parse(time.RFC3339, dropletRecord.UpdatedAt)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(updatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold*time.Second))
 				})
+
 				It("returns a record with Lifecycle fields matching the CR", func() {
 					Expect(dropletRecord.Lifecycle.Type).To(Equal(string(build.Spec.Lifecycle.Type)), "returned record lifecycle.type did not match CR")
 					Expect(dropletRecord.Lifecycle.Data.Buildpacks).To(Equal(build.Spec.Lifecycle.Data.Buildpacks), "returned record lifecycle.data.buildpacks did not match CR")
 					Expect(dropletRecord.Lifecycle.Data.Stack).To(Equal(build.Spec.Lifecycle.Data.Stack), "returned record lifecycle.data.stack did not match CR")
 				})
+
 				It("returns a record with an AppGUID field matching the CR", func() {
 					Expect(dropletRecord.AppGUID).To(Equal(build.Spec.AppRef.Name))
 				})
+
 				It("returns a record with a PackageGUID field matching the CR", func() {
 					Expect(dropletRecord.PackageGUID).To(Equal(build.Spec.PackageRef.Name))
 				})
+
 				It("return a record with all process types and commands matching the CR", func() {
 					processTypesArray := build.Status.BuildDropletStatus.ProcessTypes
 					for index := range processTypesArray {
@@ -161,8 +170,11 @@ var _ = Describe("DropletRepository", func() {
 				})
 
 			})
+
 			When("status.BuildDropletStatus is not set", func() {
+
 				When("status.Conditions \"Staging\": Unknown, \"Succeeded\": Unknown, is set", func() {
+
 					BeforeEach(func() {
 						meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
 							Type:    "Staging",
@@ -178,6 +190,7 @@ var _ = Describe("DropletRepository", func() {
 						})
 						Expect(k8sClient.Status().Update(testCtx, build)).To(Succeed())
 					})
+
 					It("should eventually return a NotFound error", func() {
 						Eventually(func() error {
 							_, err := dropletRepo.FetchDroplet(testCtx, client, buildGUID)
@@ -186,6 +199,7 @@ var _ = Describe("DropletRepository", func() {
 					})
 				})
 				When("status.Conditions \"Staging\": True, \"Succeeded\": Unknown, is set", func() {
+
 					BeforeEach(func() {
 						meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
 							Type:    "Staging",
@@ -201,6 +215,7 @@ var _ = Describe("DropletRepository", func() {
 						})
 						Expect(k8sClient.Status().Update(testCtx, build)).To(Succeed())
 					})
+
 					It("should eventually return a NotFound error", func() {
 						Eventually(func() error {
 							_, err := dropletRepo.FetchDroplet(testCtx, client, buildGUID)
@@ -209,6 +224,7 @@ var _ = Describe("DropletRepository", func() {
 					})
 				})
 				When("status.Conditions \"Staging\": False, \"Succeeded\": False, is set", func() {
+
 					BeforeEach(func() {
 						meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
 							Type:    "Staging",
@@ -224,6 +240,7 @@ var _ = Describe("DropletRepository", func() {
 						})
 						Expect(k8sClient.Status().Update(testCtx, build)).To(Succeed())
 					})
+
 					It("should eventually return a NotFound error", func() {
 						Eventually(func() error {
 							_, err := dropletRepo.FetchDroplet(testCtx, client, buildGUID)
@@ -233,7 +250,9 @@ var _ = Describe("DropletRepository", func() {
 				})
 			})
 		})
+
 		When("build does not exist", func() {
+
 			It("returns an error", func() {
 				_, err := dropletRepo.FetchDroplet(testCtx, client, "i don't exist")
 				Expect(err).To(HaveOccurred())

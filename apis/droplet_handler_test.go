@@ -59,7 +59,9 @@ var _ = Describe("DropletHandler", func() {
 			dropletHandler.RegisterRoutes(router)
 		})
 		When("on the happy path", func() {
+
 			When("build staging is successful", func() {
+
 				BeforeEach(func() {
 					dropletRepo.FetchDropletReturns(repositories.DropletRecord{
 						GUID:      dropletGUID,
@@ -83,22 +85,27 @@ var _ = Describe("DropletHandler", func() {
 					}, nil)
 					router.ServeHTTP(rr, req)
 				})
+
 				It("returns status 200 OK", func() {
 					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 				})
+
 				It("returns Content-Type as JSON in header", func() {
 					contentTypeHeader := rr.Header().Get("Content-Type")
 					Expect(contentTypeHeader).To(Equal(jsonHeader), "Matching Content-Type header:")
 				})
+
 				It("configures the client", func() {
 					Expect(clientBuilder.CallCount()).To(Equal(1))
 				})
+
 				It("fetches the right droplet", func() {
 					Expect(dropletRepo.FetchDropletCallCount()).To(Equal(1))
 
 					_, _, actualDropletGUID := dropletRepo.FetchDropletArgsForCall(0)
 					Expect(actualDropletGUID).To(Equal(dropletGUID))
 				})
+
 				It("returns the droplet in the response", func() {
 					Expect(rr.Body.String()).To(MatchJSON(`{
 					  "guid": "`+dropletGUID+`",
@@ -151,6 +158,7 @@ var _ = Describe("DropletHandler", func() {
 					  }
 					}`), "Response body matches response:")
 				})
+
 			})
 		})
 		When("building the k8s client errors", func() {
@@ -161,27 +169,16 @@ var _ = Describe("DropletHandler", func() {
 
 			itRespondsWithUnknownError(getRR)
 		})
-		When("build staging fails", func() {
-			BeforeEach(func() {
-				dropletRepo.FetchDropletReturns(repositories.DropletRecord{}, repositories.NotFoundError{})
-				router.ServeHTTP(rr, req)
-			})
-			itRespondsWithNotFound("Droplet not found", getRR)
-		})
-		When("build staging is not complete", func() {
-			BeforeEach(func() {
-				dropletRepo.FetchDropletReturns(repositories.DropletRecord{}, repositories.NotFoundError{})
-				router.ServeHTTP(rr, req)
-			})
-			itRespondsWithNotFound("Droplet not found", getRR)
-		})
+
 		When("the droplet cannot be found", func() {
 			BeforeEach(func() {
 				dropletRepo.FetchDropletReturns(repositories.DropletRecord{}, repositories.NotFoundError{})
 				router.ServeHTTP(rr, req)
 			})
+
 			itRespondsWithNotFound("Droplet not found", getRR)
 		})
+
 		When("there is some other error fetching the droplet", func() {
 			BeforeEach(func() {
 				dropletRepo.FetchDropletReturns(repositories.DropletRecord{}, errors.New("unknown!"))
