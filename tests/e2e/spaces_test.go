@@ -24,11 +24,11 @@ var _ = Describe("listing spaces", func() {
 		orgs = []hierarchicalNamespace{}
 		for i := 1; i <= 3; i++ {
 			orgDetails := createHierarchicalNamespace(rootNamespace, generateGUID("org"+strconv.Itoa(i)), repositories.OrgNameLabel)
-			waitForSubnamespaceAnchor(rootNamespace, orgDetails.generatedName)
+			waitForSubnamespaceAnchor(rootNamespace, orgDetails.guid)
 
 			for j := 1; j <= 2; j++ {
-				spaceDetails := createHierarchicalNamespace(orgDetails.generatedName, generateGUID("space"+strconv.Itoa(j)), repositories.SpaceNameLabel)
-				waitForSubnamespaceAnchor(orgDetails.generatedName, spaceDetails.generatedName)
+				spaceDetails := createHierarchicalNamespace(orgDetails.guid, generateGUID("space"+strconv.Itoa(j)), repositories.SpaceNameLabel)
+				waitForSubnamespaceAnchor(orgDetails.guid, spaceDetails.guid)
 				orgDetails.children = append(orgDetails.children, spaceDetails)
 			}
 
@@ -39,10 +39,10 @@ var _ = Describe("listing spaces", func() {
 	AfterEach(func() {
 		for _, org := range orgs {
 			for _, space := range org.children {
-				deleteSubnamespace(org.generatedName, space.generatedName)
-				waitForNamespaceDeletion(org.generatedName, space.generatedName)
+				deleteSubnamespace(org.guid, space.guid)
+				waitForNamespaceDeletion(org.guid, space.guid)
 			}
-			deleteSubnamespace(rootNamespace, org.generatedName)
+			deleteSubnamespace(rootNamespace, org.guid)
 		}
 	})
 
@@ -61,7 +61,7 @@ var _ = Describe("listing spaces", func() {
 
 	When("filtering by organization GUIDs", func() {
 		It("only lists spaces beloging to the orgs", func() {
-			Eventually(getSpacesWithQueryFn(map[string]string{"organization_guids": fmt.Sprintf("%s,%s", orgs[0].uid, orgs[2].uid)}), "60s").Should(
+			Eventually(getSpacesWithQueryFn(map[string]string{"organization_guids": fmt.Sprintf("%s,%s", orgs[0].guid, orgs[2].guid)}), "60s").Should(
 				HaveKeyWithValue("resources", ConsistOf(
 					HaveKeyWithValue("name", orgs[0].children[0].label),
 					HaveKeyWithValue("name", orgs[0].children[1].label),

@@ -27,11 +27,10 @@ import (
 )
 
 type hierarchicalNamespace struct {
-	label         string
-	generatedName string
-	createdAt     string
-	uid           string
-	children      []hierarchicalNamespace
+	label     string
+	createdAt string
+	guid      string
+	children  []hierarchicalNamespace
 }
 
 var (
@@ -124,10 +123,9 @@ func createHierarchicalNamespace(parentName, cfName, labelKey string) hierarchic
 	Expect(err).NotTo(HaveOccurred())
 
 	return hierarchicalNamespace{
-		label:         cfName,
-		generatedName: anchor.Name,
-		uid:           string(anchor.UID),
-		createdAt:     anchor.CreationTimestamp.Time.UTC().Format(time.RFC3339),
+		label:     cfName,
+		guid:      anchor.Name,
+		createdAt: anchor.CreationTimestamp.Time.UTC().Format(time.RFC3339),
 	}
 }
 

@@ -59,13 +59,13 @@ var _ = Describe("Orgs", func() {
 			for i := 1; i < 4; i++ {
 				orgDetails := createHierarchicalNamespace(rootNamespace, generateGUID("org"+strconv.Itoa(i)), repositories.OrgNameLabel)
 				orgs = append(orgs, orgDetails)
-				waitForSubnamespaceAnchor(rootNamespace, orgDetails.generatedName)
+				waitForSubnamespaceAnchor(rootNamespace, orgDetails.guid)
 			}
 		})
 
 		AfterEach(func() {
 			for _, org := range orgs {
-				deleteSubnamespace(rootNamespace, org.generatedName)
+				deleteSubnamespace(rootNamespace, org.guid)
 			}
 		})
 

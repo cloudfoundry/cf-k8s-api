@@ -51,8 +51,8 @@ func NewOrgRepo(rootNamespace string, privilegedClient client.Client) *OrgRepo {
 func (r *OrgRepo) CreateOrg(ctx context.Context, org OrgRecord) (OrgRecord, error) {
 	anchor := &v1alpha2.SubnamespaceAnchor{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: org.Name,
-			Namespace:    r.rootNamespace,
+			Name:      org.GUID,
+			Namespace: r.rootNamespace,
 			Labels: map[string]string{
 				OrgNameLabel: org.Name,
 			},
@@ -63,7 +63,7 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, org OrgRecord) (OrgRecord, erro
 		return OrgRecord{}, err
 	}
 
-	org.GUID = string(anchor.UID)
+	org.GUID = anchor.Name
 	org.CreatedAt = anchor.CreationTimestamp.Time
 	org.UpdatedAt = anchor.CreationTimestamp.Time
 	return org, nil
@@ -93,7 +93,7 @@ func (r *OrgRepo) FetchOrgs(ctx context.Context, names []string) ([]OrgRecord, e
 	for _, anchor := range subnamespaceAnchorList.Items {
 		records = append(records, OrgRecord{
 			Name:      anchor.Labels[OrgNameLabel],
-			GUID:      string(anchor.UID),
+			GUID:      anchor.Name,
 			CreatedAt: anchor.CreationTimestamp.Time,
 			UpdatedAt: anchor.CreationTimestamp.Time,
 		})
@@ -111,18 +111,17 @@ func (r *OrgRepo) FetchSpaces(ctx context.Context, organizationGUIDs, names []st
 	}
 
 	orgsFilter := toMap(organizationGUIDs)
-	orgUIDs := map[string]string{}
+	orgUIDs := map[string]bool{}
 	for _, anchor := range subnamespaceAnchorList.Items {
 		if anchor.Namespace != r.rootNamespace {
 			continue
 		}
 
-		anchorUID := string(anchor.UID)
-		if !matchFilter(orgsFilter, anchorUID) {
+		if !matchFilter(orgsFilter, anchor.Name) {
 			continue
 		}
 
-		orgUIDs[anchor.Name] = anchorUID
+		orgUIDs[anchor.Name] = true
 	}
 
 	nameFilter := toMap(names)
@@ -139,8 +138,8 @@ func (r *OrgRepo) FetchSpaces(ctx context.Context, organizationGUIDs, names []st
 
 		records = append(records, SpaceRecord{
 			Name:             spaceName,
-			GUID:             string(anchor.UID),
-			OrganizationGUID: orgUIDs[anchor.Namespace],
+			GUID:             anchor.Name,
+			OrganizationGUID: anchor.Namespace,
 			CreatedAt:        anchor.CreationTimestamp.Time,
 			UpdatedAt:        anchor.CreationTimestamp.Time,
 		})

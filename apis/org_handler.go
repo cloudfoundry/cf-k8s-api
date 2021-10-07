@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 	"github.com/go-logr/logr"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 )
@@ -53,7 +54,10 @@ func (h *OrgHandler) orgCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	record, err := h.orgRepo.CreateOrg(ctx, payload.ToRecord())
+	org := payload.ToRecord()
+	org.GUID = uuid.New().String()
+
+	record, err := h.orgRepo.CreateOrg(ctx, org)
 	if err != nil {
 		h.logger.Error(err, "failed to create org")
 		writeUnknownErrorResponse(w)

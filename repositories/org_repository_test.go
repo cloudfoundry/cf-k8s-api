@@ -6,6 +6,7 @@ import (
 
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -18,24 +19,27 @@ import (
 )
 
 var _ = Describe("OrgRepository", func() {
+	var (
+		rootNamespace string
+		orgRepo       *repositories.OrgRepo
+	)
+
+	BeforeEach(func() {
+		rootNamespace = generateGUID()
+		Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
+		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient)
+	})
+
 	Describe("Create Org", func() {
-		var (
-			orgRepo       *repositories.OrgRepo
-			ctx           context.Context
-			rootNamespace string
-		)
+		var ctx context.Context
 
 		BeforeEach(func() {
-			rootNamespace = generateGUID()
-			Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
-
-			orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient)
-
 			ctx = context.Background()
 		})
 
 		It("creates a subnamespace anchor in the root namespace", func() {
 			org, err := orgRepo.CreateOrg(ctx, repositories.OrgRecord{
+				GUID: "some-guid",
 				Name: "our-org",
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -50,7 +54,7 @@ var _ = Describe("OrgRepository", func() {
 			Expect(anchorList.Items).To(HaveLen(1))
 
 			Expect(org.Name).To(Equal("our-org"))
-			Expect(org.GUID).To(Equal(string(anchorList.Items[0].UID)))
+			Expect(org.GUID).To(Equal("some-guid"))
 			Expect(org.CreatedAt).To(BeTemporally("~", time.Now(), time.Second))
 			Expect(org.UpdatedAt).To(BeTemporally("~", time.Now(), time.Second))
 		})
@@ -67,20 +71,19 @@ var _ = Describe("OrgRepository", func() {
 
 	Describe("ListOrgs", func() {
 		var (
-			orgRepo       *repositories.OrgRepo
-			ctx           context.Context
-			rootNamespace string
+			ctx context.Context
 
 			org1Anchor, org2Anchor, org3Anchor                                                       *hnsv1alpha2.SubnamespaceAnchor
 			space11Anchor, space12Anchor, space21Anchor, space22Anchor, space31Anchor, space32Anchor *hnsv1alpha2.SubnamespaceAnchor
 		)
 
 		createOrgAnchor := func(name string) *hnsv1alpha2.SubnamespaceAnchor {
+			guid := uuid.New().String()
 			org := &hnsv1alpha2.SubnamespaceAnchor{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: name,
-					Namespace:    rootNamespace,
-					Labels:       map[string]string{repositories.OrgNameLabel: name},
+					Name:      guid,
+					Namespace: rootNamespace,
+					Labels:    map[string]string{repositories.OrgNameLabel: name},
 				},
 			}
 
@@ -91,11 +94,12 @@ var _ = Describe("OrgRepository", func() {
 		}
 
 		createSpaceAnchor := func(name, orgName string) *hnsv1alpha2.SubnamespaceAnchor {
+			guid := uuid.New().String()
 			space := &hnsv1alpha2.SubnamespaceAnchor{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: name,
-					Namespace:    orgName,
-					Labels:       map[string]string{repositories.SpaceNameLabel: name},
+					Name:      guid,
+					Namespace: orgName,
+					Labels:    map[string]string{repositories.SpaceNameLabel: name},
 				},
 			}
 
@@ -105,11 +109,6 @@ var _ = Describe("OrgRepository", func() {
 		}
 
 		BeforeEach(func() {
-			rootNamespace = generateGUID()
-			Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
-
-			orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient)
-
 			ctx = context.Background()
 
 			org1Anchor = createOrgAnchor("org1")
@@ -135,19 +134,19 @@ var _ = Describe("OrgRepository", func() {
 					Name:      "org1",
 					CreatedAt: org1Anchor.CreationTimestamp.Time,
 					UpdatedAt: org1Anchor.CreationTimestamp.Time,
-					GUID:      string(org1Anchor.UID),
+					GUID:      org1Anchor.Name,
 				},
 				repositories.OrgRecord{
 					Name:      "org2",
 					CreatedAt: org2Anchor.CreationTimestamp.Time,
 					UpdatedAt: org2Anchor.CreationTimestamp.Time,
-					GUID:      string(org2Anchor.UID),
+					GUID:      org2Anchor.Name,
 				},
 				repositories.OrgRecord{
 					Name:      "org3",
 					CreatedAt: org3Anchor.CreationTimestamp.Time,
 					UpdatedAt: org3Anchor.CreationTimestamp.Time,
-					GUID:      string(org3Anchor.UID),
+					GUID:      org3Anchor.Name,
 				},
 			))
 		})
@@ -162,13 +161,13 @@ var _ = Describe("OrgRepository", func() {
 						Name:      "org1",
 						CreatedAt: org1Anchor.CreationTimestamp.Time,
 						UpdatedAt: org1Anchor.CreationTimestamp.Time,
-						GUID:      string(org1Anchor.UID),
+						GUID:      org1Anchor.Name,
 					},
 					repositories.OrgRecord{
 						Name:      "org3",
 						CreatedAt: org3Anchor.CreationTimestamp.Time,
 						UpdatedAt: org3Anchor.CreationTimestamp.Time,
-						GUID:      string(org3Anchor.UID),
+						GUID:      org3Anchor.Name,
 					},
 				))
 			})
@@ -183,54 +182,60 @@ var _ = Describe("OrgRepository", func() {
 					Name:             "space1",
 					CreatedAt:        space11Anchor.CreationTimestamp.Time,
 					UpdatedAt:        space11Anchor.CreationTimestamp.Time,
-					GUID:             string(space11Anchor.UID),
-					OrganizationGUID: string(org1Anchor.UID),
+					GUID:             space11Anchor.Name,
+					OrganizationGUID: org1Anchor.Name,
 				},
 				repositories.SpaceRecord{
 					Name:             "space2",
 					CreatedAt:        space12Anchor.CreationTimestamp.Time,
 					UpdatedAt:        space12Anchor.CreationTimestamp.Time,
-					GUID:             string(space12Anchor.UID),
-					OrganizationGUID: string(org1Anchor.UID),
+					GUID:             space12Anchor.Name,
+					OrganizationGUID: org1Anchor.Name,
 				},
 				repositories.SpaceRecord{
 					Name:             "space1",
 					CreatedAt:        space21Anchor.CreationTimestamp.Time,
 					UpdatedAt:        space21Anchor.CreationTimestamp.Time,
-					GUID:             string(space21Anchor.UID),
-					OrganizationGUID: string(org2Anchor.UID),
+					GUID:             space21Anchor.Name,
+					OrganizationGUID: org2Anchor.Name,
 				},
 				repositories.SpaceRecord{
 					Name:             "space3",
 					CreatedAt:        space22Anchor.CreationTimestamp.Time,
 					UpdatedAt:        space22Anchor.CreationTimestamp.Time,
-					GUID:             string(space22Anchor.UID),
-					OrganizationGUID: string(org2Anchor.UID),
+					GUID:             space22Anchor.Name,
+					OrganizationGUID: org2Anchor.Name,
 				},
 				repositories.SpaceRecord{
 					Name:             "space1",
 					CreatedAt:        space31Anchor.CreationTimestamp.Time,
 					UpdatedAt:        space31Anchor.CreationTimestamp.Time,
-					GUID:             string(space31Anchor.UID),
-					OrganizationGUID: string(org3Anchor.UID),
+					GUID:             space31Anchor.Name,
+					OrganizationGUID: org3Anchor.Name,
 				},
 				repositories.SpaceRecord{
 					Name:             "space4",
 					CreatedAt:        space32Anchor.CreationTimestamp.Time,
 					UpdatedAt:        space32Anchor.CreationTimestamp.Time,
-					GUID:             string(space32Anchor.UID),
-					OrganizationGUID: string(org3Anchor.UID),
+					GUID:             space32Anchor.Name,
+					OrganizationGUID: org3Anchor.Name,
 				},
 			))
 		})
 
 		When("filtering by org guids", func() {
 			It("only retruns the spaces belonging to the specified org guids", func() {
-				spaces, err := orgRepo.FetchSpaces(ctx, []string{string(org1Anchor.UID), string(org3Anchor.UID), "does-not-exist"}, []string{})
+				spaces, err := orgRepo.FetchSpaces(ctx, []string{string(org1Anchor.Name), string(org3Anchor.Name), "does-not-exist"}, []string{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(spaces).To(ConsistOf(
-					MatchFields(IgnoreExtras, Fields{"Name": Equal("space1"), "OrganizationGUID": Equal(string(org1Anchor.UID))}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal("space1"), "OrganizationGUID": Equal(string(org3Anchor.UID))}),
+					MatchFields(IgnoreExtras, Fields{
+						"Name":             Equal("space1"),
+						"OrganizationGUID": Equal(string(org1Anchor.Name)),
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Name":             Equal("space1"),
+						"OrganizationGUID": Equal(string(org3Anchor.Name)),
+					}),
 					MatchFields(IgnoreExtras, Fields{"Name": Equal("space2")}),
 					MatchFields(IgnoreExtras, Fields{"Name": Equal("space4")}),
 				))
@@ -242,9 +247,18 @@ var _ = Describe("OrgRepository", func() {
 				spaces, err := orgRepo.FetchSpaces(ctx, []string{}, []string{"space1", "space3", "does-not-exist"})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(spaces).To(ConsistOf(
-					MatchFields(IgnoreExtras, Fields{"Name": Equal("space1"), "OrganizationGUID": Equal(string(org1Anchor.UID))}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal("space1"), "OrganizationGUID": Equal(string(org2Anchor.UID))}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal("space1"), "OrganizationGUID": Equal(string(org3Anchor.UID))}),
+					MatchFields(IgnoreExtras, Fields{
+						"Name":             Equal("space1"),
+						"OrganizationGUID": Equal(string(org1Anchor.Name)),
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Name":             Equal("space1"),
+						"OrganizationGUID": Equal(string(org2Anchor.Name)),
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Name":             Equal("space1"),
+						"OrganizationGUID": Equal(string(org3Anchor.Name)),
+					}),
 					MatchFields(IgnoreExtras, Fields{"Name": Equal("space3")}),
 				))
 			})
@@ -252,11 +266,17 @@ var _ = Describe("OrgRepository", func() {
 
 		When("filtering by org guids and space names", func() {
 			It("only retruns the spaces matching the specified names", func() {
-				spaces, err := orgRepo.FetchSpaces(ctx, []string{string(org1Anchor.UID), string(org2Anchor.UID)}, []string{"space1", "space2", "space4"})
+				spaces, err := orgRepo.FetchSpaces(ctx, []string{string(org1Anchor.Name), string(org2Anchor.Name)}, []string{"space1", "space2", "space4"})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(spaces).To(ConsistOf(
-					MatchFields(IgnoreExtras, Fields{"Name": Equal("space1"), "OrganizationGUID": Equal(string(org1Anchor.UID))}),
-					MatchFields(IgnoreExtras, Fields{"Name": Equal("space1"), "OrganizationGUID": Equal(string(org2Anchor.UID))}),
+					MatchFields(IgnoreExtras, Fields{
+						"Name":             Equal("space1"),
+						"OrganizationGUID": Equal(string(org1Anchor.Name)),
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Name":             Equal("space1"),
+						"OrganizationGUID": Equal(string(org2Anchor.Name)),
+					}),
 					MatchFields(IgnoreExtras, Fields{"Name": Equal("space2")}),
 				))
 			})
