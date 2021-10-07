@@ -57,6 +57,12 @@ undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/confi
 docker-build: ## Build docker image with the manager.
 	docker build -t ${IMG} .
 
+docker-push: ## Push docker image with the manager.
+	docker push ${IMG}
+
+pack-build:
+	pack build ${IMG} --builder paketobuildpacks/builder:tiny
+
 build-reference: kustomize
 	cd config/base && $(KUSTOMIZE) edit set image cloudfoundry/cf-k8s-api=${IMG}
 	$(KUSTOMIZE) build config/base -o reference/cf-k8s-api.yaml
