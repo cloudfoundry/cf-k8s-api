@@ -55,8 +55,8 @@ var _ = Describe("OrgRepository", func() {
 
 			Expect(org.Name).To(Equal("our-org"))
 			Expect(org.GUID).To(Equal("some-guid"))
-			Expect(org.CreatedAt).To(BeTemporally("~", time.Now(), time.Second))
-			Expect(org.UpdatedAt).To(BeTemporally("~", time.Now(), time.Second))
+			Expect(org.CreatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
+			Expect(org.UpdatedAt).To(BeTemporally("~", time.Now(), 2*time.Second))
 		})
 
 		When("the client fails to create the org", func() {
