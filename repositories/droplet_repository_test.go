@@ -84,10 +84,6 @@ var _ = Describe("DropletRepository", func() {
 		When("on the happy path", func() {
 
 			When("status.BuildDropletStatus is set", func() {
-				var (
-					dropletRecord DropletRecord
-					fetchErr      error
-				)
 
 				BeforeEach(func() {
 					meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
@@ -129,7 +125,10 @@ var _ = Describe("DropletRepository", func() {
 				})
 
 				It("should eventually return a droplet record with fields set to expected values", func() {
+					var dropletRecord DropletRecord
+
 					Eventually(func() string {
+						var fetchErr error
 						dropletRecord, fetchErr = dropletRepo.FetchDroplet(testCtx, client, buildGUID)
 						if fetchErr != nil {
 							return ""
@@ -173,9 +172,7 @@ var _ = Describe("DropletRepository", func() {
 							Expect(dropletRecord.ProcessTypes).To(HaveKeyWithValue(processTypesArray[index].Type, processTypesArray[index].Command))
 						}
 					})
-
 				})
-
 			})
 
 			When("status.BuildDropletStatus is not set", func() {
