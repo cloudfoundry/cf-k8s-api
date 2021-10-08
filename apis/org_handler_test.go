@@ -76,7 +76,7 @@ var _ = Describe("OrgHandler", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(MatchJSON(fmt.Sprintf(`{
-"guid": "t-h-e-o-r-g",
+          "guid": "t-h-e-o-r-g",
 					"name": "the-org",
 					"created_at": "2021-09-17T15:23:10Z",
 					"updated_at": "2021-09-17T15:23:10Z",
@@ -116,7 +116,7 @@ var _ = Describe("OrgHandler", func() {
 		When("the user passes optional org parameters", func() {
 			BeforeEach(func() {
 				makePostRequest(`{
-"name": "the-org",
+          "name": "the-org",
 					"suspended": true,
 					"metadata": {
 						"labels": {"foo": "bar"},
@@ -140,7 +140,7 @@ var _ = Describe("OrgHandler", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(MatchJSON(fmt.Sprintf(`{
-"guid": "t-h-e-o-r-g",
+          "guid": "t-h-e-o-r-g",
 					"name": "the-org",
 					"created_at": "2021-09-17T15:23:10Z",
 					"updated_at": "2021-09-17T15:23:10Z",
@@ -168,14 +168,14 @@ var _ = Describe("OrgHandler", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusBadRequest))
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
-"errors": [
-					{
-						"title": "CF-MessageParseError",
-						"detail": "Request invalid due to parse error: invalid request body",
-						"code": 1001
-					}
-				]
-			}`)))
+          "errors": [
+            {
+              "title": "CF-MessageParseError",
+              "detail": "Request invalid due to parse error: invalid request body",
+              "code": 1001
+            }
+          ]
+        }`)))
 			})
 		})
 
@@ -188,14 +188,14 @@ var _ = Describe("OrgHandler", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
-"errors": [
-					{
-						"title": "CF-UnprocessableEntity",
-						"detail": "invalid request body: json: unknown field \"description\"",
-						"code": 10008
-					}
-				]
-			}`)))
+          "errors": [
+            {
+              "title": "CF-UnprocessableEntity",
+              "detail": "invalid request body: json: unknown field \"description\"",
+              "code": 10008
+            }
+          ]
+        }`)))
 			})
 		})
 
@@ -208,14 +208,14 @@ var _ = Describe("OrgHandler", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
-"errors": [
-					{
-						"code":   10008,
-						"title": "CF-UnprocessableEntity",
-						"detail": "Name must be a string"
-					}
-				]
-			}`)))
+          "errors": [
+            {
+              "code":   10008,
+              "title": "CF-UnprocessableEntity",
+              "detail": "Name must be a string"
+            }
+          ]
+        }`)))
 			})
 		})
 
@@ -228,14 +228,14 @@ var _ = Describe("OrgHandler", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusUnprocessableEntity))
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(MatchJSON(`{
-"errors": [
-					{
-						"title": "CF-UnprocessableEntity",
-						"detail": "Name is a required field",
-						"code": 10008
-					}
-				]
-			}`)))
+          "errors": [
+            {
+              "title": "CF-UnprocessableEntity",
+              "detail": "Name is a required field",
+              "code": 10008
+            }
+          ]
+        }`)))
 			})
 		})
 	})
@@ -293,56 +293,56 @@ var _ = Describe("OrgHandler", func() {
 
 			It("renders the orgs response", func() {
 				expectedBody := fmt.Sprintf(`
-                {
-                   "pagination": {
-                      "total_results": 2,
-                      "total_pages": 1,
-                      "first": {
-                         "href": "%[1]s/v3/organizations?page=1"
+          {
+             "pagination": {
+                "total_results": 2,
+                "total_pages": 1,
+                "first": {
+                   "href": "%[1]s/v3/organizations?page=1"
+                },
+                "last": {
+                   "href": "%[1]s/v3/organizations?page=1"
+                },
+                "next": null,
+                "previous": null
+             },
+             "resources": [
+                  {
+                      "guid": "a-l-i-c-e",
+                      "name": "alice",
+                      "created_at": "2021-09-17T15:23:10Z",
+                      "updated_at": "2021-09-17T15:23:10Z",
+                      "suspended": false,
+                      "metadata": {
+                        "labels": {},
+                        "annotations": {}
                       },
-                      "last": {
-                         "href": "%[1]s/v3/organizations?page=1"
+                      "relationships": {},
+                      "links": {
+                          "self": {
+                              "href": "%[1]s/v3/organizations/a-l-i-c-e"
+                          }
+                      }
+                  },
+                  {
+                      "guid": "b-o-b",
+                      "name": "bob",
+                      "created_at": "2021-09-17T15:23:10Z",
+                      "updated_at": "2021-09-17T15:23:10Z",
+                      "suspended": false,
+                      "metadata": {
+                        "labels": {},
+                        "annotations": {}
                       },
-                      "next": null,
-                      "previous": null
-                   },
-                   "resources": [
-                        {
-                            "guid": "a-l-i-c-e",
-                            "name": "alice",
-                            "created_at": "2021-09-17T15:23:10Z",
-                            "updated_at": "2021-09-17T15:23:10Z",
-                            "suspended": false,
-                            "metadata": {
-                              "labels": {},
-                              "annotations": {}
-                            },
-                            "relationships": {},
-                            "links": {
-                                "self": {
-                                    "href": "%[1]s/v3/organizations/a-l-i-c-e"
-                                }
-                            }
-                        },
-                        {
-                            "guid": "b-o-b",
-                            "name": "bob",
-                            "created_at": "2021-09-17T15:23:10Z",
-                            "updated_at": "2021-09-17T15:23:10Z",
-                            "suspended": false,
-                            "metadata": {
-                              "labels": {},
-                              "annotations": {}
-                            },
-                            "relationships": {},
-                            "links": {
-                                "self": {
-                                    "href": "%[1]s/v3/organizations/b-o-b"
-                                }
-                            }
-                        }
-                    ]
-                }`, rootURL)
+                      "relationships": {},
+                      "links": {
+                          "self": {
+                              "href": "%[1]s/v3/organizations/b-o-b"
+                          }
+                      }
+                  }
+              ]
+          }`, rootURL)
 				Expect(rr.Body.String()).To(MatchJSON(expectedBody))
 			})
 		})
