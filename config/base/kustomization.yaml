@@ -24,5 +24,5 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
 - name: cloudfoundry/cf-k8s-api
-  newName: cf-k8s-api
-  newTag: 22d0f1ff-94df-42ea-b414-d2f5a2407d2f
+  newName: cloudfoundry/cf-k8s-api
+  newTag: latest
