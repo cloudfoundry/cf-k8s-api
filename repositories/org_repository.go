@@ -111,7 +111,7 @@ func (r *OrgRepo) FetchSpaces(ctx context.Context, organizationGUIDs, names []st
 	}
 
 	orgsFilter := toMap(organizationGUIDs)
-	orgUIDs := map[string]bool{}
+	orgUIDs := map[string]struct{}{}
 	for _, anchor := range subnamespaceAnchorList.Items {
 		if anchor.Namespace != r.rootNamespace {
 			continue
@@ -121,7 +121,7 @@ func (r *OrgRepo) FetchSpaces(ctx context.Context, organizationGUIDs, names []st
 			continue
 		}
 
-		orgUIDs[anchor.Name] = true
+		orgUIDs[anchor.Name] = struct{}{}
 	}
 
 	nameFilter := toMap(names)
@@ -148,7 +148,7 @@ func (r *OrgRepo) FetchSpaces(ctx context.Context, organizationGUIDs, names []st
 	return records, nil
 }
 
-func matchFilter(filter map[string]bool, value string) bool {
+func matchFilter(filter map[string]struct{}, value string) bool {
 	if len(filter) == 0 {
 		return true
 	}
@@ -157,10 +157,10 @@ func matchFilter(filter map[string]bool, value string) bool {
 	return ok
 }
 
-func toMap(elements []string) map[string]bool {
-	result := map[string]bool{}
+func toMap(elements []string) map[string]struct{} {
+	result := map[string]struct{}{}
 	for _, element := range elements {
-		result[element] = true
+		result[element] = struct{}{}
 	}
 
 	return result
