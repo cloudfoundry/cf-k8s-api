@@ -69,7 +69,7 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, org OrgRecord) (OrgRecord, erro
 	return org, nil
 }
 
-func (r *OrgRepo) FetchOrgs(ctx context.Context, names []string) ([]OrgRecord, error) {
+func (r *OrgRepo) FetchOrgs(ctx context.Context, authToken string, names []string) ([]OrgRecord, error) {
 	subnamespaceAnchorList := &v1alpha2.SubnamespaceAnchorList{}
 
 	options := []client.ListOption{client.InNamespace(r.rootNamespace)}

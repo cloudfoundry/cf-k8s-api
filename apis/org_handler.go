@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-api/payloads"
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	"github.com/go-http-utils/headers"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -23,9 +24,8 @@ const (
 //counterfeiter:generate -o fake -fake-name CFOrgRepository . CFOrgRepository
 
 type CFOrgRepository interface {
-	// TODO: pass received credentials to OrgRepo so it can create user-auth'ed k8s client
-	CreateOrg(context.Context, repositories.OrgRecord) (repositories.OrgRecord, error)
-	FetchOrgs(context.Context, []string) ([]repositories.OrgRecord, error)
+	CreateOrg(context context.Context, org repositories.OrgRecord) (repositories.OrgRecord, error)
+	FetchOrgs(context context.Context, token string, orgNames []string) ([]repositories.OrgRecord, error)
 }
 
 type OrgHandler struct {
@@ -80,7 +80,15 @@ func (h *OrgHandler) orgListHandler(w http.ResponseWriter, r *http.Request) {
 		names = strings.Split(namesList, ",")
 	}
 
-	orgs, err := h.orgRepo.FetchOrgs(ctx, names)
+	bearerToken := parseAuthorizationHeader(r.Header.Get(headers.Authorization))
+	if bearerToken == "" {
+		h.logger.Info("no bearer token provided")
+		writeUnauthorizedErrorResponse(w)
+
+		return
+	}
+
+	orgs, err := h.orgRepo.FetchOrgs(ctx, bearerToken, names)
 	if err != nil {
 		h.logger.Error(err, "failed to fetch orgs")
 		writeUnknownErrorResponse(w)
@@ -95,4 +103,13 @@ func (h *OrgHandler) orgListHandler(w http.ResponseWriter, r *http.Request) {
 func (h *OrgHandler) RegisterRoutes(router *mux.Router) {
 	router.Path(OrgListEndpoint).Methods("GET").HandlerFunc(h.orgListHandler)
 	router.Path(OrgListEndpoint).Methods("POST").HandlerFunc(h.orgCreateHandler)
+}
+
+func parseAuthorizationHeader(headerValue string) string {
+	bearerPrefix := "Bearer "
+	prefixPos := strings.LastIndex(headerValue, bearerPrefix)
+	if prefixPos != 0 {
+		return ""
+	}
+	return headerValue[len(bearerPrefix):]
 }

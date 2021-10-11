@@ -13,6 +13,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-api/apis"
 	"code.cloudfoundry.org/cf-k8s-api/apis/fake"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	"github.com/go-http-utils/headers"
 	"github.com/gorilla/mux"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -31,7 +32,6 @@ var _ = Describe("OrgHandler", func() {
 		orgRepo    *fake.CFOrgRepository
 		req        *http.Request
 		rr         *httptest.ResponseRecorder
-		err        error
 		now        time.Time
 	)
 
@@ -269,6 +269,7 @@ var _ = Describe("OrgHandler", func() {
 
 			rr = httptest.NewRecorder()
 			req, err = http.NewRequestWithContext(ctx, http.MethodGet, orgsBase, nil)
+			req.Header.Add(headers.Authorization, "Bearer my-token")
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -285,9 +286,15 @@ var _ = Describe("OrgHandler", func() {
 				Expect(rr.Header().Get("Content-Type")).To(Equal("application/json"))
 			})
 
+			It("propagates bearer token to the repo", func() {
+				Expect(orgRepo.FetchOrgsCallCount()).To(Equal(1))
+				_, token, _ := orgRepo.FetchOrgsArgsForCall(0)
+				Expect(token).To(Equal("my-token"))
+			})
+
 			It("lists orgs using the repository", func() {
 				Expect(orgRepo.FetchOrgsCallCount()).To(Equal(1))
-				_, names := orgRepo.FetchOrgsArgsForCall(0)
+				_, _, names := orgRepo.FetchOrgsArgsForCall(0)
 				Expect(names).To(BeEmpty())
 			})
 
@@ -349,15 +356,17 @@ var _ = Describe("OrgHandler", func() {
 
 		When("names are specified", func() {
 			BeforeEach(func() {
-				req, err = http.NewRequestWithContext(ctx, http.MethodGet, orgsBase+"?names=foo,bar", nil)
-				Expect(err).NotTo(HaveOccurred())
+				values := url.Values{
+					"names": []string{"foo,bar"},
+				}
+				req.URL.RawQuery = values.Encode()
 
 				router.ServeHTTP(rr, req)
 			})
 
 			It("filters by them", func() {
 				Expect(orgRepo.FetchOrgsCallCount()).To(Equal(1))
-				_, names := orgRepo.FetchOrgsArgsForCall(0)
+				_, _, names := orgRepo.FetchOrgsArgsForCall(0)
 				Expect(names).To(ConsistOf("foo", "bar"))
 			})
 		})
@@ -369,6 +378,46 @@ var _ = Describe("OrgHandler", func() {
 			})
 
 			itRespondsWithUnknownError(func() *httptest.ResponseRecorder { return rr })
+		})
+
+		When("no Authorization header is supplied in the request", func() {
+			BeforeEach(func() {
+				req.Header.Del(headers.Authorization)
+				router.ServeHTTP(rr, req)
+			})
+
+			It("returns Unauthorized error", func() {
+				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
+				Expect(rr.Body.String()).To(MatchJSON(`{
+                    "errors": [
+                        {
+                            "detail": "No auth token was given, but authentication is required for this endpoint",
+                            "title": "CF-NotAuthenticated",
+                            "code": 10002
+                        }
+                    ]
+                }`))
+			})
+		})
+
+		When("the Authorization header is does not contain a bearer token", func() {
+			BeforeEach(func() {
+				req.Header.Set(headers.Authorization, "lol")
+				router.ServeHTTP(rr, req)
+			})
+
+			It("returns Unauthorized error", func() {
+				Expect(rr.Result().StatusCode).To(Equal(http.StatusUnauthorized))
+				Expect(rr.Body.String()).To(MatchJSON(`{
+                    "errors": [
+                        {
+                            "detail": "No auth token was given, but authentication is required for this endpoint",
+                            "title": "CF-NotAuthenticated",
+                            "code": 10002
+                        }
+                    ]
+                }`))
+			})
 		})
 	})
 })

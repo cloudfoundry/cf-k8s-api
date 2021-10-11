@@ -24,11 +24,12 @@ type CFOrgRepository struct {
 		result1 repositories.OrgRecord
 		result2 error
 	}
-	FetchOrgsStub        func(context.Context, []string) ([]repositories.OrgRecord, error)
+	FetchOrgsStub        func(context.Context, string, []string) ([]repositories.OrgRecord, error)
 	fetchOrgsMutex       sync.RWMutex
 	fetchOrgsArgsForCall []struct {
 		arg1 context.Context
-		arg2 []string
+		arg2 string
+		arg3 []string
 	}
 	fetchOrgsReturns struct {
 		result1 []repositories.OrgRecord
@@ -107,24 +108,25 @@ func (fake *CFOrgRepository) CreateOrgReturnsOnCall(i int, result1 repositories.
 	}{result1, result2}
 }
 
-func (fake *CFOrgRepository) FetchOrgs(arg1 context.Context, arg2 []string) ([]repositories.OrgRecord, error) {
-	var arg2Copy []string
-	if arg2 != nil {
-		arg2Copy = make([]string, len(arg2))
-		copy(arg2Copy, arg2)
+func (fake *CFOrgRepository) FetchOrgs(arg1 context.Context, arg2 string, arg3 []string) ([]repositories.OrgRecord, error) {
+	var arg3Copy []string
+	if arg3 != nil {
+		arg3Copy = make([]string, len(arg3))
+		copy(arg3Copy, arg3)
 	}
 	fake.fetchOrgsMutex.Lock()
 	ret, specificReturn := fake.fetchOrgsReturnsOnCall[len(fake.fetchOrgsArgsForCall)]
 	fake.fetchOrgsArgsForCall = append(fake.fetchOrgsArgsForCall, struct {
 		arg1 context.Context
-		arg2 []string
-	}{arg1, arg2Copy})
+		arg2 string
+		arg3 []string
+	}{arg1, arg2, arg3Copy})
 	stub := fake.FetchOrgsStub
 	fakeReturns := fake.fetchOrgsReturns
-	fake.recordInvocation("FetchOrgs", []interface{}{arg1, arg2Copy})
+	fake.recordInvocation("FetchOrgs", []interface{}{arg1, arg2, arg3Copy})
 	fake.fetchOrgsMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -138,17 +140,17 @@ func (fake *CFOrgRepository) FetchOrgsCallCount() int {
 	return len(fake.fetchOrgsArgsForCall)
 }
 
-func (fake *CFOrgRepository) FetchOrgsCalls(stub func(context.Context, []string) ([]repositories.OrgRecord, error)) {
+func (fake *CFOrgRepository) FetchOrgsCalls(stub func(context.Context, string, []string) ([]repositories.OrgRecord, error)) {
 	fake.fetchOrgsMutex.Lock()
 	defer fake.fetchOrgsMutex.Unlock()
 	fake.FetchOrgsStub = stub
 }
 
-func (fake *CFOrgRepository) FetchOrgsArgsForCall(i int) (context.Context, []string) {
+func (fake *CFOrgRepository) FetchOrgsArgsForCall(i int) (context.Context, string, []string) {
 	fake.fetchOrgsMutex.RLock()
 	defer fake.fetchOrgsMutex.RUnlock()
 	argsForCall := fake.fetchOrgsArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *CFOrgRepository) FetchOrgsReturns(result1 []repositories.OrgRecord, result2 error) {

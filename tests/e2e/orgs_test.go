@@ -1,14 +1,20 @@
 package e2e_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/form3tech-oss/jwt-go"
+	"github.com/go-http-utils/headers"
 	. "github.com/onsi/gomega/gstruct"
+	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
@@ -49,15 +55,23 @@ var _ = Describe("Orgs", func() {
 	})
 
 	Describe("listing orgs", func() {
-		var orgs []hierarchicalNamespace
+		var (
+			orgs       []hierarchicalNamespace
+			userName   string
+			authHeader string
+		)
 
 		BeforeEach(func() {
+			userName = "alice"
+			authHeader = fmt.Sprintf("Bearer: %s", generateJWTToken(userName))
 			orgs = []hierarchicalNamespace{}
 			for i := 1; i < 4; i++ {
-				orgDetails := createHierarchicalNamespace(rootNamespace, generateGUID("org"+strconv.Itoa(i)), repositories.OrgNameLabel)
-				orgs = append(orgs, orgDetails)
-				waitForSubnamespaceAnchor(rootNamespace, orgDetails.guid)
+				org := createOrg(generateGUID("org" + strconv.Itoa(i)))
+				bindUserToOrg(userName, org)
+				orgs = append(orgs, org)
 			}
+
+			orgs = append(orgs, createOrg(generateGUID("org4")))
 		})
 
 		AfterEach(func() {
@@ -66,29 +80,47 @@ var _ = Describe("Orgs", func() {
 			}
 		})
 
-		It("returns all 3 orgs", func() {
-			Eventually(getOrgsFn()).Should(ContainElements(
+		It("returns all 3 orgs that alice has a role in", func() {
+			Eventually(getOrgsFn(authHeader)).Should(ContainElements(
 				MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[0].label)}),
 				MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[1].label)}),
 				MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[2].label)}),
 			))
 		})
 
+		It("does not return orgs alice does not have a role in", func() {
+			Consistently(getOrgsFn(authHeader)).ShouldNot(ContainElements(
+				MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[3].label)}),
+			))
+		})
+
 		When("org names are filtered", func() {
 			It("returns orgs 1 & 3", func() {
-				Eventually(getOrgsFn(orgs[0].label, orgs[2].label)).Should(ContainElements(
+				Eventually(getOrgsFn(authHeader, orgs[0].label, orgs[2].label)).Should(ContainElements(
 					MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[0].label)}),
 					MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[2].label)}),
 				))
-				Consistently(getOrgsFn(orgs[0].label, orgs[2].label), "2s").ShouldNot(ContainElement(
+				Consistently(getOrgsFn(authHeader, orgs[0].label, orgs[2].label), "2s").ShouldNot(ContainElement(
 					MatchFields(IgnoreExtras, Fields{"Name": Equal(orgs[1].label)}),
 				))
+			})
+		})
+
+		When("no Authorization header is available in the request", func() {
+			It("returns unauthorized error", func() {
+				orgsUrl := apiServerRoot + "/v3/organizations"
+				req, err := http.NewRequest(http.MethodGet, orgsUrl, nil)
+				Expect(err).NotTo(HaveOccurred())
+				resp, err := http.DefaultClient.Do(req)
+				Expect(err).NotTo(HaveOccurred())
+				defer resp.Body.Close()
+				Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 			})
 		})
 	})
 })
 
-func getOrgsFn(names ...string) func() ([]presenter.OrgResponse, error) {
+func getOrgsFn(authHeaderValue string, names ...string) func() ([]presenter.OrgResponse, error) {
 	return func() ([]presenter.OrgResponse, error) {
 		orgsUrl := apiServerRoot + "/v3/organizations"
 
@@ -99,6 +131,10 @@ func getOrgsFn(names ...string) func() ([]presenter.OrgResponse, error) {
 		req, err := http.NewRequest(http.MethodGet, orgsUrl, nil)
 		if err != nil {
 			return nil, err
+		}
+
+		if authHeaderValue != "" {
+			req.Header.Add(headers.Authorization, authHeaderValue)
 		}
 
 		resp, err := http.DefaultClient.Do(req)
@@ -125,4 +161,32 @@ func getOrgsFn(names ...string) func() ([]presenter.OrgResponse, error) {
 
 		return orgList.Resources, nil
 	}
+}
+
+func createOrg(orgName string) hierarchicalNamespace {
+	orgDetails := createHierarchicalNamespace(rootNamespace, orgName, repositories.OrgNameLabel)
+	waitForSubnamespaceAnchor(rootNamespace, orgDetails.guid)
+	return orgDetails
+}
+
+func bindUserToOrg(userName string, org hierarchicalNamespace) {
+	roleBinding := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: org.guid,
+			Name:      userName + "-spacedeveloper",
+		},
+		Subjects: []rbacv1.Subject{{Kind: rbacv1.UserKind, Name: userName}},
+		RoleRef:  rbacv1.RoleRef{Kind: "ClusterRole", Name: "cf-admin-clusterrolebinding"},
+	}
+	Expect(k8sClient.Create(context.Background(), roleBinding)).To(Succeed())
+}
+
+func generateJWTToken(userName string) string {
+	atClaims := jwt.MapClaims{}
+	atClaims["sub"] = userName
+	atClaims["exp"] = time.Now().Add(time.Minute * 15).Unix()
+	at := jwt.NewWithClaims(jwt.SigningMethodHS256, atClaims)
+	token, err := at.SignedString([]byte("jwt-token-for-" + userName))
+	Expect(err).NotTo(HaveOccurred())
+	return token
 }
