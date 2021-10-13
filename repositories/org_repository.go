@@ -36,15 +36,22 @@ type SpaceRecord struct {
 	UpdatedAt        time.Time
 }
 
+//counterfeiter:generate -o fake -fake-name AuthorizedNamespacesProvider . AuthorizedNamespacesProvider
+type AuthorizedNamespacesProvider interface {
+	GetAuthorizedOrgs(token string) ([]string, error)
+}
+
 type OrgRepo struct {
 	rootNamespace    string
 	privilegedClient client.Client
+	authNsProvider   AuthorizedNamespacesProvider
 }
 
-func NewOrgRepo(rootNamespace string, privilegedClient client.Client) *OrgRepo {
+func NewOrgRepo(rootNamespace string, privilegedClient client.Client, authNsProvider AuthorizedNamespacesProvider) *OrgRepo {
 	return &OrgRepo{
 		rootNamespace:    rootNamespace,
 		privilegedClient: privilegedClient,
+		authNsProvider:   authNsProvider,
 	}
 }
 
@@ -89,8 +96,19 @@ func (r *OrgRepo) FetchOrgs(ctx context.Context, authToken string, names []strin
 		return nil, err
 	}
 
+	authorizedOrgs, err := r.authNsProvider.GetAuthorizedOrgs(authToken)
+	if err != nil {
+		return nil, err
+	}
+
+	orgsFilter := toMap(authorizedOrgs)
+
 	records := []OrgRecord{}
 	for _, anchor := range subnamespaceAnchorList.Items {
+		if _, ok := orgsFilter[anchor.Name]; !ok {
+			continue
+		}
+
 		records = append(records, OrgRecord{
 			Name:      anchor.Labels[OrgNameLabel],
 			GUID:      anchor.Name,

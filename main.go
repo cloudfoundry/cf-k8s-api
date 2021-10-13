@@ -131,11 +131,11 @@ func main() {
 			k8sClientConfig,
 		),
 		apis.NewOrgHandler(
-			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient),
+			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, nil),
 			*serverURL,
 		),
 		apis.NewSpaceHandler(
-			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient),
+			repositories.NewOrgRepo(config.RootNamespace, privilegedCRClient, nil),
 			*serverURL,
 		),
 	}

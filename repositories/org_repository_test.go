@@ -2,9 +2,11 @@ package repositories_test
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	"code.cloudfoundry.org/cf-k8s-api/repositories/fake"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"
@@ -20,14 +22,16 @@ import (
 
 var _ = Describe("OrgRepository", func() {
 	var (
-		rootNamespace string
-		orgRepo       *repositories.OrgRepo
+		rootNamespace  string
+		orgRepo        *repositories.OrgRepo
+		authNsProvider *fake.AuthorizedNamespacesProvider
 	)
 
 	BeforeEach(func() {
+		authNsProvider = new(fake.AuthorizedNamespacesProvider)
 		rootNamespace = generateGUID()
 		Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
-		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient)
+		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, authNsProvider)
 	})
 
 	Describe("Create Org", func() {
@@ -70,6 +74,8 @@ var _ = Describe("OrgRepository", func() {
 	})
 
 	Describe("ListOrgs", func() {
+		const authToken = "very-secret-token"
+
 		var (
 			ctx context.Context
 
@@ -123,10 +129,20 @@ var _ = Describe("OrgRepository", func() {
 
 			space31Anchor = createSpaceAnchor("space1", org3Anchor.Name)
 			space32Anchor = createSpaceAnchor("space4", org3Anchor.Name)
+
+			authNsProvider.GetAuthorizedOrgsReturns([]string{org1Anchor.Name, org2Anchor.Name, org3Anchor.Name}, nil)
+		})
+
+		It("calls the authorized namespace provider", func() {
+			_, err := orgRepo.FetchOrgs(ctx, authToken, []string{})
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(authNsProvider.GetAuthorizedOrgsCallCount()).To(Equal(1))
+			Expect(authNsProvider.GetAuthorizedOrgsArgsForCall(0)).To(Equal(authToken))
 		})
 
 		It("returns the 3 orgs", func() {
-			orgs, err := orgRepo.FetchOrgs(ctx, nil)
+			orgs, err := orgRepo.FetchOrgs(ctx, authToken, nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(orgs).To(ConsistOf(
@@ -153,7 +169,7 @@ var _ = Describe("OrgRepository", func() {
 
 		When("we filter for org1 and org3", func() {
 			It("returns just those", func() {
-				orgs, err := orgRepo.FetchOrgs(ctx, []string{"org1", "org3"})
+				orgs, err := orgRepo.FetchOrgs(ctx, authToken, []string{"org1", "org3"})
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(orgs).To(ConsistOf(
@@ -170,6 +186,59 @@ var _ = Describe("OrgRepository", func() {
 						GUID:      org3Anchor.Name,
 					},
 				))
+			})
+		})
+
+		When("the user is not authorized in all orgs", func() {
+			BeforeEach(func() {
+				authNsProvider.GetAuthorizedOrgsReturns([]string{org1Anchor.Name, org2Anchor.Name}, nil)
+			})
+
+			It("returns only the orgs the user has access to", func() {
+				orgs, err := orgRepo.FetchOrgs(ctx, authToken, []string{})
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(orgs).To(ConsistOf(
+					repositories.OrgRecord{
+						Name:      "org1",
+						CreatedAt: org1Anchor.CreationTimestamp.Time,
+						UpdatedAt: org1Anchor.CreationTimestamp.Time,
+						GUID:      org1Anchor.Name,
+					},
+					repositories.OrgRecord{
+						Name:      "org2",
+						CreatedAt: org2Anchor.CreationTimestamp.Time,
+						UpdatedAt: org2Anchor.CreationTimestamp.Time,
+						GUID:      org2Anchor.Name,
+					},
+				))
+			})
+
+			When("we filter for org1 and org3", func() {
+				It("returns the filtered orgs to which the user has access", func() {
+					orgs, err := orgRepo.FetchOrgs(ctx, authToken, []string{"org1", "org3"})
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(orgs).To(ConsistOf(
+						repositories.OrgRecord{
+							Name:      "org1",
+							CreatedAt: org1Anchor.CreationTimestamp.Time,
+							UpdatedAt: org1Anchor.CreationTimestamp.Time,
+							GUID:      org1Anchor.Name,
+						},
+					))
+				})
+			})
+		})
+
+		When("the authorized namespaces provider returns an error", func() {
+			BeforeEach(func() {
+				authNsProvider.GetAuthorizedOrgsReturns([]string{}, errors.New("boom"))
+			})
+
+			It("returns the error", func() {
+				_, err := orgRepo.FetchOrgs(ctx, authToken, []string{"org1", "org3"})
+				Expect(err).To(MatchError(ContainSubstring("boom")))
 			})
 		})
 

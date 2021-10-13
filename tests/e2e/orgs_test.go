@@ -176,7 +176,7 @@ func bindUserToOrg(userName string, org hierarchicalNamespace) {
 			Name:      userName + "-spacedeveloper",
 		},
 		Subjects: []rbacv1.Subject{{Kind: rbacv1.UserKind, Name: userName}},
-		RoleRef:  rbacv1.RoleRef{Kind: "ClusterRole", Name: "cf-admin-clusterrolebinding"},
+		RoleRef:  rbacv1.RoleRef{Kind: "ClusterRole", Name: "cf-admin-clusterrole"},
 	}
 	Expect(k8sClient.Create(context.Background(), roleBinding)).To(Succeed())
 }
