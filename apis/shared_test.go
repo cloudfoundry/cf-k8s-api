@@ -1,6 +1,8 @@
 package apis_test
 
 import (
+	"code.cloudfoundry.org/cf-k8s-api/repositories"
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -80,4 +82,30 @@ func itRespondsWithUnprocessableEntity(detail string, rr func() *httptest.Respon
 			]
 		}`, detail)))
 	})
+}
+
+func initializeProcessRecord(processGUID, spaceGUID, appGUID string) *repositories.ProcessRecord {
+	return &repositories.ProcessRecord{
+		GUID:        processGUID,
+		SpaceGUID:   spaceGUID,
+		AppGUID:     appGUID,
+		Type:        "web",
+		Command:     "rackup",
+		Instances:   1,
+		MemoryMB:    256,
+		DiskQuotaMB: 1024,
+		Ports:       []int32{8080},
+		HealthCheck: workloadsv1alpha1.HealthCheck{
+			Type: "port",
+			Data: workloadsv1alpha1.HealthCheckData{
+				HTTPEndpoint:             "",
+				InvocationTimeoutSeconds: 0,
+				TimeoutSeconds:           0,
+			},
+		},
+		Labels: 	map[string]string{},
+		Annotations: map[string]string{},
+		CreatedAt:   "",
+		UpdatedAt:   "",
+	}
 }
