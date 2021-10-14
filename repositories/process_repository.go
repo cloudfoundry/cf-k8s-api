@@ -1,10 +1,9 @@
 package repositories
 
 import (
+	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	"context"
 	"errors"
-
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -56,9 +55,12 @@ func (r *ProcessRepository) FetchProcess(ctx context.Context, client client.Clie
 	return returnProcess(matches)
 }
 
-func (r *ProcessRepository) FetchProcessesForApp(ctx context.Context, client client.Client, appGUID string) ([]ProcessRecord, error) {
+func (r *ProcessRepository) FetchProcessesForApp(ctx context.Context, k8sClient client.Client, appGUID, spaceGUID string) ([]ProcessRecord, error) {
 	processList := &workloadsv1alpha1.CFProcessList{}
-	err := client.List(ctx, processList)
+	options := []client.ListOption{
+		client.InNamespace(spaceGUID),
+	}
+	err := k8sClient.List(ctx, processList, options...)
 	if err != nil { // untested
 		return []ProcessRecord{}, err
 	}

@@ -376,7 +376,7 @@ func (h *AppHandler) getProcessesForAppHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	_, err = h.appRepo.FetchApp(ctx, client, appGUID)
+	app, err := h.appRepo.FetchApp(ctx, client, appGUID)
 	if err != nil {
 		switch err.(type) {
 		case repositories.NotFoundError:
@@ -390,7 +390,7 @@ func (h *AppHandler) getProcessesForAppHandler(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	processList, err := h.processRepo.FetchProcessesForApp(ctx, client, appGUID)
+	processList, err := h.processRepo.FetchProcessesForApp(ctx, client, appGUID, app.SpaceGUID)
 	if err != nil {
 		h.logger.Error(err, "Failed to fetch app Process(es) from Kubernetes")
 		writeUnknownErrorResponse(w)

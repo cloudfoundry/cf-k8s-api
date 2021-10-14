@@ -185,7 +185,8 @@ var _ = Describe("ProcessRepository", func() {
 
 	Describe("FetchProcessesForApp", func() {
 		var (
-			namespace *corev1.Namespace
+			namespaceGUID string
+			namespace     *corev1.Namespace
 
 			app1GUID string
 			app2GUID string
@@ -200,24 +201,24 @@ var _ = Describe("ProcessRepository", func() {
 
 		BeforeEach(func() {
 			beforeCtx := context.Background()
-			namespaceName := generateGUID()
-			namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}
+			namespaceGUID = generateGUID()
+			namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceGUID}}
 			Expect(k8sClient.Create(beforeCtx, namespace)).To(Succeed())
 
 			app1GUID = generateGUID()
 			app2GUID = generateGUID()
-			cfApp1 = initializeAppCR("test-app1", app1GUID, namespace.Name)
+			cfApp1 = initializeAppCR("test-app1", app1GUID, namespaceGUID)
 			Expect(k8sClient.Create(beforeCtx, cfApp1)).To(Succeed())
 
-			cfApp2 = initializeAppCR("test-app2", app2GUID, namespace.Name)
+			cfApp2 = initializeAppCR("test-app2", app2GUID, namespaceGUID)
 			Expect(k8sClient.Create(beforeCtx, cfApp2)).To(Succeed())
 
 			process1GUID = generateGUID()
-			cfProcess1 = initializeProcessCR(process1GUID, namespace.Name, app1GUID)
+			cfProcess1 = initializeProcessCR(process1GUID, namespaceGUID, app1GUID)
 			Expect(k8sClient.Create(beforeCtx, cfProcess1)).To(Succeed())
 
 			process2GUID = generateGUID()
-			cfProcess2 = initializeProcessCR(process2GUID, namespace.Name, app1GUID)
+			cfProcess2 = initializeProcessCR(process2GUID, namespaceGUID, app1GUID)
 			Expect(k8sClient.Create(beforeCtx, cfProcess2)).To(Succeed())
 		})
 
@@ -233,7 +234,7 @@ var _ = Describe("ProcessRepository", func() {
 		When("on the happy path", func() {
 
 			It("returns Process records for the AppGUID we request", func() {
-				processes, err := processRepo.FetchProcessesForApp(testCtx, client, app1GUID)
+				processes, err := processRepo.FetchProcessesForApp(testCtx, client, app1GUID, namespaceGUID)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(processes)).To(Equal(2))
 				By("returning a process record for each process of the app", func() {
@@ -247,7 +248,7 @@ var _ = Describe("ProcessRepository", func() {
 
 		When("no Processes exist for an app", func() {
 			It("returns an empty list", func() {
-				processes, err := processRepo.FetchProcessesForApp(testCtx, client, app2GUID)
+				processes, err := processRepo.FetchProcessesForApp(testCtx, client, app2GUID, namespaceGUID)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(processes).To(BeEmpty())
 				Expect(processes).ToNot(BeNil())
@@ -256,7 +257,7 @@ var _ = Describe("ProcessRepository", func() {
 
 		When("the app does not exist", func() {
 			It("returns an empty list", func() {
-				processes, err := processRepo.FetchProcessesForApp(testCtx, client, "I don't exist")
+				processes, err := processRepo.FetchProcessesForApp(testCtx, client, "I don't exist", namespaceGUID)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(processes).To(BeEmpty())
 				Expect(processes).ToNot(BeNil())
