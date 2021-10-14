@@ -103,7 +103,7 @@ func initializeProcessRecord(processGUID, spaceGUID, appGUID string) *repositori
 				TimeoutSeconds:           0,
 			},
 		},
-		Labels: 	map[string]string{},
+		Labels:      map[string]string{},
 		Annotations: map[string]string{},
 		CreatedAt:   "",
 		UpdatedAt:   "",

@@ -1138,7 +1138,7 @@ var _ = Describe("AppHandler", func() {
 						TimeoutSeconds:           0,
 					},
 				},
-				Labels: 	map[string]string{},
+				Labels:      map[string]string{},
 				Annotations: map[string]string{},
 				CreatedAt:   "2016-03-23T18:48:22Z",
 				UpdatedAt:   "2016-03-23T18:48:42Z",
@@ -1154,7 +1154,7 @@ var _ = Describe("AppHandler", func() {
 			processRepo.FetchProcessesForAppReturns([]repositories.ProcessRecord{
 				processRecord,
 				processRecord2,
-			},nil)
+			}, nil)
 
 			var err error
 			req, err = http.NewRequest("GET", "/v3/apps/"+appGUID+"/processes", nil)
@@ -1178,7 +1178,7 @@ var _ = Describe("AppHandler", func() {
 							"href": "%[1]s/v3/apps/%[2]s/processes?page=1"
 						  },
 						  "last": {
-							"href": "%[1]s/v3/apps%[2]s/processes?page=1"
+							"href": "%[1]s/v3/apps/%[2]s/processes?page=1"
 						  },
 						  "next": null,
 						  "previous": null
@@ -1240,8 +1240,7 @@ var _ = Describe("AppHandler", func() {
 								"health_check": {
 									"type": "process",
 									"data": {
-										"timeout": null,
-										"invocation_timeout": null
+										"timeout": null
 									}
 								},
 								"relationships": {
@@ -1249,7 +1248,7 @@ var _ = Describe("AppHandler", func() {
 										"data": {
 											"guid": "%[2]s"
 										}
-									},
+									}
 								},
 								"metadata": {
 									"labels": {},
@@ -1283,7 +1282,7 @@ var _ = Describe("AppHandler", func() {
 
 			When("The App does not have associated processes", func() {
 				BeforeEach(func() {
-					processRepo.FetchProcessesForAppReturns([]repositories.ProcessRecord{},nil)
+					processRepo.FetchProcessesForAppReturns([]repositories.ProcessRecord{}, nil)
 				})
 
 				It("returns status 200 OK", func() {
@@ -1302,7 +1301,7 @@ var _ = Describe("AppHandler", func() {
 							"href": "%[1]s/v3/apps/%[2]s/processes?page=1"
 						  },
 						  "last": {
-							"href": "%[1]s/v3/apps%[2]s/processes?page=1"
+							"href": "%[1]s/v3/apps/%[2]s/processes?page=1"
 						  },
 						  "next": null,
 						  "previous": null

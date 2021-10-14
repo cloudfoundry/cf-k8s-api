@@ -84,12 +84,39 @@ var _ = Describe("ProcessRepository", func() {
 				k8sClient.Delete(context.Background(), cfProcess2)
 			})
 
-			It("can fetch the Process CR we're looking for", func() {
+			It("returns a Process record for the Process CR we request", func() {
 				process, err := processRepo.FetchProcess(testCtx, client, process1GUID)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(process.GUID).To(Equal(process1GUID))
-				Expect(process.SpaceGUID).To(Equal(namespace1.Name))
-				Expect(process.AppGUID).To(Equal(app1GUID))
+				By("Returning a record with a matching GUID", func() {
+					Expect(process.GUID).To(Equal(process1GUID))
+				})
+				By("Returning a record with a matching spaceGUID", func() {
+					Expect(process.SpaceGUID).To(Equal(namespace1.Name))
+				})
+				By("Returning a record with a matching appGUID", func() {
+					Expect(process.AppGUID).To(Equal(app1GUID))
+				})
+				By("Returning a record with a matching ProcessType", func() {
+					Expect(process.Type).To(Equal(cfProcess1.Spec.ProcessType))
+				})
+				By("Returning a record with a matching Command", func() {
+					Expect(process.Command).To(Equal(cfProcess1.Spec.Command))
+				})
+				By("Returning a record with a matching Instance Count", func() {
+					Expect(process.Instances).To(Equal(cfProcess1.Spec.DesiredInstances))
+				})
+				By("Returning a record with a matching MemoryMB", func() {
+					Expect(process.MemoryMB).To(Equal(cfProcess1.Spec.MemoryMB))
+				})
+				By("Returning a record with a matching DiskQuotaMB", func() {
+					Expect(process.DiskQuotaMB).To(Equal(cfProcess1.Spec.DiskQuotaMB))
+				})
+				By("Returning a record with matching Ports", func() {
+					Expect(process.Ports).To(Equal(cfProcess1.Spec.Ports))
+				})
+				By("Returning a record with matching HealthCheck", func() {
+					Expect(process.HealthCheck).To(Equal(cfProcess1.Spec.HealthCheck))
+				})
 			})
 		})
 

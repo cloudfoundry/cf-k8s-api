@@ -33,8 +33,8 @@ type ProcessResponseHealthCheck struct {
 
 type ProcessResponseHealthCheckData struct {
 	Type              string `json:"-"`
-	Timeout           int64    `json:"timeout"`
-	InvocationTimeout int64    `json:"invocation_timeout"`
+	Timeout           int64  `json:"timeout"`
+	InvocationTimeout int64  `json:"invocation_timeout"`
 	HTTPEndpoint      string `json:"endpoint"`
 }
 
@@ -70,8 +70,8 @@ func (h ProcessResponseHealthCheckData) MarshalJSON() ([]byte, error) {
 }
 
 type ProcessResponseHTTPHealthCheckData struct {
-	Timeout           *int64   `json:"timeout"`
-	InvocationTimeout *int64   `json:"invocation_timeout"`
+	Timeout           *int64 `json:"timeout"`
+	InvocationTimeout *int64 `json:"invocation_timeout"`
 	HTTPEndpoint      string `json:"endpoint"`
 }
 
@@ -124,7 +124,7 @@ func ForProcess(responseProcess repositories.ProcessRecord, baseURL url.URL) Pro
 				HREF: buildURL(baseURL).appendPath(processesBase, responseProcess.GUID).build(),
 			},
 			"scale": {
-				HREF: buildURL(baseURL).appendPath(processesBase, responseProcess.GUID, "actions/scale").build(),
+				HREF:   buildURL(baseURL).appendPath(processesBase, responseProcess.GUID, "actions/scale").build(),
 				Method: "POST",
 			},
 			"app": {
@@ -148,15 +148,16 @@ func ForProcessList(processRecordList []repositories.ProcessRecord, baseURL url.
 		processResponses = append(processResponses, processResponse)
 	}
 
+	pageHREF := buildURL(baseURL).appendPath(appsBase, appGUID, "processes").setQuery("page=1").build()
 	processListResponse := ProcessListResponse{
 		PaginationData: PaginationData{
 			TotalResults: len(processResponses),
 			TotalPages:   1,
 			First: PageRef{
-				HREF: buildURL(baseURL).appendPath(appsBase, appGUID, "processes").setQuery("page=1").build(),
+				HREF: pageHREF,
 			},
 			Last: PageRef{
-				HREF: buildURL(baseURL).appendPath(appsBase, appGUID, "processes").setQuery("page=1").build(),
+				HREF: pageHREF,
 			},
 		},
 		Resources: processResponses,

@@ -74,10 +74,19 @@ func cfProcessToProcessRecord(cfProcess workloadsv1alpha1.CFProcess) ProcessReco
 	updatedAtTime, _ := getTimeLastUpdatedTimestamp(&cfProcess.ObjectMeta)
 
 	return ProcessRecord{
-		GUID:      cfProcess.Name,
-		SpaceGUID: cfProcess.Namespace,
-		AppGUID:   cfProcess.Spec.AppRef.Name,
-		CreatedAt: cfProcess.CreationTimestamp.UTC().Format(TimestampFormat),
-		UpdatedAt: updatedAtTime,
+		GUID:        cfProcess.Name,
+		SpaceGUID:   cfProcess.Namespace,
+		AppGUID:     cfProcess.Spec.AppRef.Name,
+		Type:        cfProcess.Spec.ProcessType,
+		Command:     cfProcess.Spec.Command,
+		Instances:   cfProcess.Spec.DesiredInstances,
+		MemoryMB:    cfProcess.Spec.MemoryMB,
+		DiskQuotaMB: cfProcess.Spec.DiskQuotaMB,
+		Ports:       cfProcess.Spec.Ports,
+		HealthCheck: cfProcess.Spec.HealthCheck,
+		Labels:      map[string]string{},
+		Annotations: map[string]string{},
+		CreatedAt:   cfProcess.CreationTimestamp.UTC().Format(TimestampFormat),
+		UpdatedAt:   updatedAtTime,
 	}
 }
