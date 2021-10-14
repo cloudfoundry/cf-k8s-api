@@ -22,11 +22,22 @@ type ProcessRecord struct {
 	MemoryMB    int64
 	DiskQuotaMB int64
 	Ports       []int32
-	HealthCheck workloadsv1alpha1.HealthCheck
+	HealthCheck HealthCheck
 	Labels      map[string]string
 	Annotations map[string]string
 	CreatedAt   string
 	UpdatedAt   string
+}
+
+type HealthCheck struct {
+	Type string
+	Data HealthCheckData
+}
+
+type HealthCheckData struct {
+	HTTPEndpoint             string
+	InvocationTimeoutSeconds int64
+	TimeoutSeconds           int64
 }
 
 type ProcessRepository struct{}
@@ -111,7 +122,14 @@ func cfProcessToProcessRecord(cfProcess workloadsv1alpha1.CFProcess) ProcessReco
 		MemoryMB:    cfProcess.Spec.MemoryMB,
 		DiskQuotaMB: cfProcess.Spec.DiskQuotaMB,
 		Ports:       cfProcess.Spec.Ports,
-		HealthCheck: cfProcess.Spec.HealthCheck,
+		HealthCheck: HealthCheck{
+			Type: string(cfProcess.Spec.HealthCheck.Type),
+			Data: HealthCheckData{
+				HTTPEndpoint:             cfProcess.Spec.HealthCheck.Data.HTTPEndpoint,
+				InvocationTimeoutSeconds: cfProcess.Spec.HealthCheck.Data.InvocationTimeoutSeconds,
+				TimeoutSeconds:           cfProcess.Spec.HealthCheck.Data.TimeoutSeconds,
+			},
+		},
 		Labels:      map[string]string{},
 		Annotations: map[string]string{},
 		CreatedAt:   cfProcess.CreationTimestamp.UTC().Format(TimestampFormat),

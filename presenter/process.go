@@ -23,7 +23,15 @@ type ProcessResponse struct {
 	Metadata      Metadata                   `json:"metadata"`
 	CreatedAt     string                     `json:"created_at"`
 	UpdatedAt     string                     `json:"updated_at"`
-	Links         map[string]Link            `json:"links"`
+	Links         ProcessLinks               `json:"links"`
+}
+
+type ProcessLinks struct {
+	Self  Link `json:"self"`
+	Scale Link `json:"scale"`
+	App   Link `json:"app"`
+	Space Link `json:"space"`
+	Stats Link `json:"stats"`
 }
 
 type ProcessResponseHealthCheck struct {
@@ -119,21 +127,21 @@ func ForProcess(responseProcess repositories.ProcessRecord, baseURL url.URL) Pro
 		},
 		CreatedAt: responseProcess.CreatedAt,
 		UpdatedAt: responseProcess.UpdatedAt,
-		Links: map[string]Link{
-			"self": {
+		Links: ProcessLinks{
+			Self: Link{
 				HREF: buildURL(baseURL).appendPath(processesBase, responseProcess.GUID).build(),
 			},
-			"scale": {
+			Scale: Link{
 				HREF:   buildURL(baseURL).appendPath(processesBase, responseProcess.GUID, "actions/scale").build(),
 				Method: "POST",
 			},
-			"app": {
+			App: Link{
 				HREF: buildURL(baseURL).appendPath(appsBase, responseProcess.AppGUID).build(),
 			},
-			"space": Link{
+			Space: Link{
 				HREF: buildURL(baseURL).appendPath(spacesBase, responseProcess.SpaceGUID).build(),
 			},
-			"stats": {
+			Stats: Link{
 				HREF: buildURL(baseURL).appendPath(processesBase, responseProcess.GUID, "stats").build(),
 			},
 		},

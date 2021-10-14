@@ -1,7 +1,6 @@
 package apis_test
 
 import (
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1130,9 +1129,9 @@ var _ = Describe("AppHandler", func() {
 				MemoryMB:    256,
 				DiskQuotaMB: 1024,
 				Ports:       []int32{8080},
-				HealthCheck: workloadsv1alpha1.HealthCheck{
+				HealthCheck: repositories.HealthCheck{
 					Type: "port",
-					Data: workloadsv1alpha1.HealthCheckData{
+					Data: repositories.HealthCheckData{
 						HTTPEndpoint:             "",
 						InvocationTimeoutSeconds: 0,
 						TimeoutSeconds:           0,

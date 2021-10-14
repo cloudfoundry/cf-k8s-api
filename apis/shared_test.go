@@ -1,12 +1,12 @@
 package apis_test
 
 import (
-	"code.cloudfoundry.org/cf-k8s-api/repositories"
-	workloadsv1alpha1 "code.cloudfoundry.org/cf-k8s-controllers/apis/workloads/v1alpha1"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+
+	"code.cloudfoundry.org/cf-k8s-api/repositories"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -95,9 +95,9 @@ func initializeProcessRecord(processGUID, spaceGUID, appGUID string) *repositori
 		MemoryMB:    256,
 		DiskQuotaMB: 1024,
 		Ports:       []int32{8080},
-		HealthCheck: workloadsv1alpha1.HealthCheck{
+		HealthCheck: repositories.HealthCheck{
 			Type: "port",
-			Data: workloadsv1alpha1.HealthCheckData{
+			Data: repositories.HealthCheckData{
 				HTTPEndpoint:             "",
 				InvocationTimeoutSeconds: 0,
 				TimeoutSeconds:           0,

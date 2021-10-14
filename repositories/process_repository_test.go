@@ -122,7 +122,10 @@ var _ = Describe("ProcessRepository", func() {
 					Expect(process.Ports).To(Equal(cfProcess1.Spec.Ports))
 				})
 				By("Returning a record with matching HealthCheck", func() {
-					Expect(process.HealthCheck).To(Equal(cfProcess1.Spec.HealthCheck))
+					Expect(process.HealthCheck.Type).To(Equal(string(cfProcess1.Spec.HealthCheck.Type)))
+					Expect(process.HealthCheck.Data.InvocationTimeoutSeconds).To(Equal(cfProcess1.Spec.HealthCheck.Data.InvocationTimeoutSeconds))
+					Expect(process.HealthCheck.Data.TimeoutSeconds).To(Equal(cfProcess1.Spec.HealthCheck.Data.TimeoutSeconds))
+					Expect(process.HealthCheck.Data.HTTPEndpoint).To(Equal(cfProcess1.Spec.HealthCheck.Data.HTTPEndpoint))
 				})
 			})
 		})
