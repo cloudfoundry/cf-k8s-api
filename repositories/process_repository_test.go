@@ -36,13 +36,20 @@ var _ = Describe("ProcessRepository", func() {
 		)
 
 		BeforeEach(func() {
+			beforeCtx := context.Background()
 			namespace1Name := generateGUID()
 			namespace1 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace1Name}}
-			Expect(k8sClient.Create(context.Background(), namespace1)).To(Succeed())
+			Expect(k8sClient.Create(beforeCtx, namespace1)).To(Succeed())
 
 			namespace2Name := generateGUID()
 			namespace2 = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace2Name}}
-			Expect(k8sClient.Create(context.Background(), namespace2)).To(Succeed())
+			Expect(k8sClient.Create(beforeCtx, namespace2)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			afterCtx := context.Background()
+			k8sClient.Delete(afterCtx, namespace1)
+			k8sClient.Delete(afterCtx, namespace2)
 		})
 
 		When("on the happy path", func() {
@@ -169,6 +176,87 @@ var _ = Describe("ProcessRepository", func() {
 				_, err := processRepo.FetchProcess(testCtx, client, "i don't exist")
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError(NotFoundError{}))
+			})
+		})
+	})
+
+	Describe("FetchProcessesForApp", func() {
+		var (
+			namespace *corev1.Namespace
+
+			app1GUID string
+			app2GUID string
+			cfApp1   *workloadsv1alpha1.CFApp
+			cfApp2   *workloadsv1alpha1.CFApp
+
+			process1GUID string
+			process2GUID string
+			cfProcess1   *workloadsv1alpha1.CFProcess
+			cfProcess2   *workloadsv1alpha1.CFProcess
+		)
+
+		BeforeEach(func() {
+			beforeCtx := context.Background()
+			namespaceName := generateGUID()
+			namespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}
+			Expect(k8sClient.Create(beforeCtx, namespace)).To(Succeed())
+
+			app1GUID = generateGUID()
+			app2GUID = generateGUID()
+			cfApp1 = initializeAppCR("test-app1", app1GUID, namespace.Name)
+			Expect(k8sClient.Create(beforeCtx, cfApp1)).To(Succeed())
+
+			cfApp2 = initializeAppCR("test-app2", app2GUID, namespace.Name)
+			Expect(k8sClient.Create(beforeCtx, cfApp2)).To(Succeed())
+
+			process1GUID = generateGUID()
+			cfProcess1 = initializeProcessCR(process1GUID, namespace.Name, app1GUID)
+			Expect(k8sClient.Create(beforeCtx, cfProcess1)).To(Succeed())
+
+			process2GUID = generateGUID()
+			cfProcess2 = initializeProcessCR(process2GUID, namespace.Name, app1GUID)
+			Expect(k8sClient.Create(beforeCtx, cfProcess2)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			afterCtx := context.Background()
+			k8sClient.Delete(afterCtx, cfApp1)
+			k8sClient.Delete(afterCtx, cfApp2)
+			k8sClient.Delete(afterCtx, cfProcess1)
+			k8sClient.Delete(afterCtx, cfProcess2)
+			k8sClient.Delete(afterCtx, namespace)
+		})
+
+		When("on the happy path", func() {
+
+			It("returns Process records for the AppGUID we request", func() {
+				processes, err := processRepo.FetchProcessesForApp(testCtx, client, app1GUID)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(processes)).To(Equal(2))
+				By("returning a process record for each process of the app", func() {
+					for _, processRecord := range processes {
+						recordMatchesOneProcess := processRecord.GUID == process1GUID || processRecord.GUID == process2GUID
+						Expect(recordMatchesOneProcess).To(BeTrue(), "ProcessRecord GUID did not match one of the expected processes")
+					}
+				})
+			})
+		})
+
+		When("no Processes exist for an app", func() {
+			It("returns an empty list", func() {
+				processes, err := processRepo.FetchProcessesForApp(testCtx, client, app2GUID)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(processes).To(BeEmpty())
+				Expect(processes).ToNot(BeNil())
+			})
+		})
+
+		When("the app does not exist", func() {
+			It("returns an empty list", func() {
+				processes, err := processRepo.FetchProcessesForApp(testCtx, client, "I don't exist")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(processes).To(BeEmpty())
+				Expect(processes).ToNot(BeNil())
 			})
 		})
 	})

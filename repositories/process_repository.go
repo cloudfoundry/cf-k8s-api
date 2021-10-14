@@ -46,7 +46,15 @@ func (r *ProcessRepository) FetchProcess(ctx context.Context, client client.Clie
 }
 
 func (r *ProcessRepository) FetchProcessesForApp(ctx context.Context, client client.Client, appGUID string) ([]ProcessRecord, error) {
-	return []ProcessRecord{}, nil
+	processList := &workloadsv1alpha1.CFProcessList{}
+	err := client.List(ctx, processList)
+	if err != nil { // untested
+		return []ProcessRecord{}, err
+	}
+	allProcesses := processList.Items
+	matches := filterProcessesByAppGUID(allProcesses, appGUID)
+
+	return returnProcesses(matches)
 }
 
 func filterProcessesByMetadataName(processes []workloadsv1alpha1.CFProcess, name string) []workloadsv1alpha1.CFProcess {
@@ -68,6 +76,26 @@ func returnProcess(processes []workloadsv1alpha1.CFProcess) (ProcessRecord, erro
 	}
 
 	return cfProcessToProcessRecord(processes[0]), nil
+}
+
+func filterProcessesByAppGUID(processes []workloadsv1alpha1.CFProcess, appGUID string) []workloadsv1alpha1.CFProcess {
+	var filtered []workloadsv1alpha1.CFProcess
+	for i, process := range processes {
+		if process.Spec.AppRef.Name == appGUID {
+			filtered = append(filtered, processes[i])
+		}
+	}
+	return filtered
+}
+
+func returnProcesses(processes []workloadsv1alpha1.CFProcess) ([]ProcessRecord, error) {
+	processRecords := make([]ProcessRecord, 0, len(processes))
+	for _, process := range processes {
+		processRecord := cfProcessToProcessRecord(process)
+		processRecords = append(processRecords, processRecord)
+	}
+
+	return processRecords, nil
 }
 
 func cfProcessToProcessRecord(cfProcess workloadsv1alpha1.CFProcess) ProcessRecord {
