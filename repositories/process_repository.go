@@ -13,11 +13,20 @@ import (
 //+kubebuilder:rbac:groups=workloads.cloudfoundry.org,resources=cfprocesses/status,verbs=get
 
 type ProcessRecord struct {
-	GUID      string
-	SpaceGUID string
-	AppGUID   string
-	CreatedAt string
-	UpdatedAt string
+	GUID        string
+	SpaceGUID   string
+	AppGUID     string
+	Type        string
+	Command     string
+	Instances   int
+	MemoryMB    int64
+	DiskQuotaMB int64
+	Ports       []int32
+	HealthCheck workloadsv1alpha1.HealthCheck
+	Labels      map[string]string
+	Annotations map[string]string
+	CreatedAt   string
+	UpdatedAt   string
 }
 
 type ProcessRepository struct{}
@@ -34,6 +43,10 @@ func (r *ProcessRepository) FetchProcess(ctx context.Context, client client.Clie
 	matches := filterProcessesByMetadataName(allProcesses, processGUID)
 
 	return returnProcess(matches)
+}
+
+func (r *ProcessRepository) FetchProcessesForApp(ctx context.Context, client client.Client, appGUID string) ([]ProcessRecord, error) {
+	return []ProcessRecord{}, nil
 }
 
 func filterProcessesByMetadataName(processes []workloadsv1alpha1.CFProcess, name string) []workloadsv1alpha1.CFProcess {
