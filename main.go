@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -26,6 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	hnsv1alpha2 "sigs.k8s.io/hierarchical-namespaces/api/v1alpha2"
 )
 
@@ -56,12 +56,20 @@ func main() {
 		// TODO: this needs to be configurable
 		Development: true,
 	}
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&zapOpts)))
 
-	privilegedCRClient, err := repositories.BuildCRClient(k8sClientConfig)
+	logger := zap.New(zap.UseFlagOptions(&zapOpts))
+	ctrl.SetLogger(logger)
+
+	mgr, err := manager.New(k8sClientConfig, manager.Options{
+		Scheme: scheme.Scheme,
+		Logger: logger,
+	})
 	if err != nil {
-		panic(fmt.Sprintf("could not create privileged k8s client: %v", err))
+		panic(fmt.Sprintf("could not create manager: %v", err))
 	}
+
+	privilegedCRClient := mgr.GetClient()
+
 	privilegedK8sClient, err := repositories.BuildK8sClient(k8sClientConfig)
 	if err != nil {
 		panic(fmt.Sprintf("could not create privileged k8s client: %v", err))
@@ -146,7 +154,16 @@ func main() {
 	}
 
 	portString := fmt.Sprintf(":%v", config.ServerPort)
-	log.Fatal(http.ListenAndServe(portString, router))
+	runnable := func(ctx context.Context) error {
+		return http.ListenAndServe(portString, router)
+	}
+
+	mgr.Add(manager.RunnableFunc(runnable))
+
+	err = mgr.Start(ctrl.SetupSignalHandler())
+	if err == nil {
+		panic(fmt.Sprintf("manager error: %v", err))
+	}
 }
 
 func newRegistryAuthBuilder(privilegedK8sClient k8sclient.Interface, config *config.Config) func(ctx context.Context) (remote.Option, error) {
