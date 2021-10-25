@@ -7,9 +7,11 @@ readonly HNC_PLATFORM="$(go env GOHOSTOS)_$(go env GOHOSTARCH)"
 readonly HNC_BIN="$PWD/bin"
 export PATH="$HNC_BIN:$PATH"
 
-mkdir -p "$HNC_BIN"
-curl -L "https://github.com/kubernetes-sigs/multi-tenancy/releases/download/hnc-${HNC_VERSION}/kubectl-hns_${HNC_PLATFORM}" -o "${HNC_BIN}/kubectl-hns"
-chmod +x "${HNC_BIN}/kubectl-hns"
+if ! command -v kubectl-hns >/dev/null; then
+  mkdir -p "$HNC_BIN"
+  curl -L "https://github.com/kubernetes-sigs/multi-tenancy/releases/download/hnc-${HNC_VERSION}/kubectl-hns_${HNC_PLATFORM}" -o "${HNC_BIN}/kubectl-hns"
+  chmod +x "${HNC_BIN}/kubectl-hns"
+fi
 
 kubectl label ns kube-system hnc.x-k8s.io/excluded-namespace=true --overwrite
 kubectl label ns kube-public hnc.x-k8s.io/excluded-namespace=true --overwrite
