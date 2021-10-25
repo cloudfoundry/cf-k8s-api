@@ -13,13 +13,13 @@ const (
 )
 
 type RouteResponse struct {
-	GUID         string                     `json:"guid"`
-	Protocol     string                     `json:"protocol"`
-	Port         *int                       `json:"port"`
-	Host         string                     `json:"host"`
-	Path         string                     `json:"path"`
-	URL          string                     `json:"url"`
-	Destinations []routeDestinationResponse `json:"destinations"`
+	GUID         string             `json:"guid"`
+	Protocol     string             `json:"protocol"`
+	Port         *int               `json:"port"`
+	Host         string             `json:"host"`
+	Path         string             `json:"path"`
+	URL          string             `json:"url"`
+	Destinations []routeDestination `json:"destinations"`
 
 	CreatedAt     string        `json:"created_at"`
 	UpdatedAt     string        `json:"updated_at"`
@@ -29,11 +29,11 @@ type RouteResponse struct {
 }
 
 type RouteDestinationsResponse struct {
-	Destinations []routeDestinationResponse `json:"destinations"`
-	Links        routeDestinationsLinks     `json:"links"`
+	Destinations []routeDestination     `json:"destinations"`
+	Links        routeDestinationsLinks `json:"links"`
 }
 
-type routeDestinationResponse struct {
+type routeDestination struct {
 	GUID     string              `json:"guid"`
 	App      routeDestinationApp `json:"app"`
 	Weight   *int                `json:"weight"`
@@ -63,9 +63,9 @@ type routeDestinationsLinks struct {
 }
 
 func ForRoute(route repositories.RouteRecord, baseURL url.URL) RouteResponse {
-	destinations := make([]routeDestinationResponse, len(route.Destinations))
+	destinations := make([]routeDestination, len(route.Destinations))
 	for _, destinationRecord := range route.Destinations {
-		destinations = append(destinations, ForDestination(destinationRecord))
+		destinations = append(destinations, forDestination(destinationRecord))
 	}
 	return RouteResponse{
 		GUID:      route.GUID,
@@ -109,8 +109,8 @@ func ForRoute(route repositories.RouteRecord, baseURL url.URL) RouteResponse {
 	}
 }
 
-func ForDestination(destination repositories.Destination) routeDestinationResponse {
-	return routeDestinationResponse{
+func forDestination(destination repositories.Destination) routeDestination {
+	return routeDestination{
 		GUID: destination.GUID,
 		App: routeDestinationApp{
 			AppGUID: destination.AppGUID,
@@ -125,9 +125,9 @@ func ForDestination(destination repositories.Destination) routeDestinationRespon
 }
 
 func ForRouteDestinations(route repositories.RouteRecord, baseURL url.URL) RouteDestinationsResponse {
-	destinations := []routeDestinationResponse{}
+	destinations := []routeDestination{}
 	for _, destinationRecord := range route.Destinations {
-		destinations = append(destinations, ForDestination(destinationRecord))
+		destinations = append(destinations, forDestination(destinationRecord))
 	}
 	return RouteDestinationsResponse{
 		Destinations: destinations,
