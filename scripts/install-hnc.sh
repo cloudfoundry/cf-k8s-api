@@ -47,4 +47,8 @@ echo
 
 # The eirini controller requires a service account and rolebinding, which are
 # used by the statefulset controller to be able to create pods
-kubectl hns config set-resource serviceaccounts --mode Propagate
+until kubectl hns config set-resource serviceaccounts --mode Propagate; do
+  echo -n .
+  sleep 0.5
+done
+echo
