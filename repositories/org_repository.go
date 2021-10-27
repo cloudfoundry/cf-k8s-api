@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-api/repositories/registry"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -52,6 +54,16 @@ func NewOrgRepo(rootNamespace string, privilegedClient client.WithWatch, timeout
 }
 
 func (r *OrgRepo) CreateOrg(ctx context.Context, org OrgRecord) (OrgRecord, error) {
+	registrar := registry.NewRegistrar(r.privilegedClient, r.rootNamespace)
+	registration, err := registrar.TryRegister(ctx, registry.OrgType, r.rootNamespace, org.Name)
+	if err != nil {
+		if errors.IsAlreadyExists(err) {
+			return OrgRecord{}, fmt.Errorf("%s record %q already exists in namespace %s: %w", string(registry.OrgType), r.rootNamespace, org.Name, err)
+		}
+
+		return OrgRecord{}, fmt.Errorf("failed to register name: %w", err)
+	}
+
 	anchor := &v1alpha2.SubnamespaceAnchor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      org.GUID,
@@ -61,9 +73,14 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, org OrgRecord) (OrgRecord, erro
 			},
 		},
 	}
-	err := r.privilegedClient.Create(ctx, anchor)
+	err = r.privilegedClient.Create(ctx, anchor)
 	if err != nil {
 		return OrgRecord{}, fmt.Errorf("failed to create subnamespaceanchor: %w", err)
+	}
+
+	err = registrar.SetOwnerRef(ctx, anchor, registration)
+	if err != nil {
+		// todo
 	}
 
 	timeoutCtx, cancelFn := context.WithTimeout(ctx, r.timeout)

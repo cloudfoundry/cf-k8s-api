@@ -11,10 +11,10 @@ import (
 	"code.cloudfoundry.org/cf-k8s-api/payloads"
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
-	"code.cloudfoundry.org/cf-k8s-controllers/webhooks/workloads"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"k8s.io/apimachinery/pkg/api/errors"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 )
 
@@ -61,9 +61,9 @@ func (h *OrgHandler) orgCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	record, err := h.orgRepo.CreateOrg(ctx, org)
 	if err != nil {
-		if workloads.HasErrorCode(err, workloads.DuplicateOrgNameError) {
+		if errors.IsAlreadyExists(err) {
 			errorDetail := fmt.Sprintf("Organization '%s' already exists.", org.Name)
-			h.logger.Info(errorDetail)
+			h.logger.Info(errorDetail, "original error", err)
 			writeUnprocessableEntityError(w, errorDetail)
 			return
 		}
