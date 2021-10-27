@@ -1429,8 +1429,8 @@ var _ = Describe("AppHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		When("On the happy path and", func() {
-			When("The App has associated routes", func() {
+		When("on the happy path and", func() {
+			When("the App has associated routes", func() {
 				It("returns status 200 OK", func() {
 					Expect(rr.Code).To(Equal(http.StatusOK), "Matching HTTP response code:")
 				})
@@ -1442,62 +1442,62 @@ var _ = Describe("AppHandler", func() {
 
 				It("returns the Pagination Data and App Resources in the response", func() {
 					Expect(rr.Body.String()).To(MatchJSON(fmt.Sprintf(`{
-				"pagination": {
-					"total_results": 1,
-					"total_pages": 1,
-					"first": {
-						"href": "%[1]s/v3/apps/%[2]s/routes?page=1"
-					},
-					"last": {
-						"href": "%[1]s/v3/apps/%[2]s/routes?page=1"
-					},
-					"next": null,
-					"previous": null
-				},
-				"resources": [
-					{
-						"guid": "%[3]s",
-						"port": null,
-						"path": "%[4]s",
-						"protocol": "%[5]s",
-						"host": "%[6]s",
-						"url": "%[6]s.%[7]s%[4]s",
-						"created_at": "%[8]s",
-						"updated_at": "%[9]s",
-						"destinations": [],
-						"relationships": {
-							"space": {
-								"data": {
-									"guid": "%[10]s"
-								}
+						"pagination": {
+							"total_results": 1,
+							"total_pages": 1,
+							"first": {
+								"href": "%[1]s/v3/apps/%[2]s/routes?page=1"
 							},
-							"domain": {
-								"data": {
-									"guid": "%[11]s"
+							"last": {
+								"href": "%[1]s/v3/apps/%[2]s/routes?page=1"
+							},
+							"next": null,
+							"previous": null
+						},
+						"resources": [
+							{
+								"guid": "%[3]s",
+								"port": null,
+								"path": "%[4]s",
+								"protocol": "%[5]s",
+								"host": "%[6]s",
+								"url": "%[6]s.%[7]s%[4]s",
+								"created_at": "%[8]s",
+								"updated_at": "%[9]s",
+								"destinations": [],
+								"relationships": {
+									"space": {
+										"data": {
+											"guid": "%[10]s"
+										}
+									},
+									"domain": {
+										"data": {
+											"guid": "%[11]s"
+										}
+									}
+								},
+								"metadata": {
+									"labels": {},
+									"annotations": {}
+								},
+								"links": {
+									"self":{
+										"href": "%[1]s/v3/routes/%[3]s"
+									},
+									"space":{
+										"href": "%[1]s/v3/spaces/%[10]s"
+									},
+									"domain":{
+										"href": "%[1]s/v3/domains/%[11]s"
+									},
+									"destinations":{
+										"href": "%[1]s/v3/routes/%[3]s/destinations"
+									}
 								}
 							}
-						},
-						"metadata": {
-							"labels": {},
-							"annotations": {}
-						},
-						"links": {
-							"self":{
-								"href": "%[1]s/v3/routes/%[3]s"
-							},
-							"space":{
-								"href": "%[1]s/v3/spaces/%[10]s"
-							},
-							"domain":{
-								"href": "%[1]s/v3/domains/%[11]s"
-							},
-							"destinations":{
-								"href": "%[1]s/v3/routes/%[3]s/destinations"
-							}
-						}
-					}
-				]
-				}`, defaultServerURL, appGUID, route1Record.GUID, route1Record.Path, route1Record.Protocol, route1Record.Host, domainRecord.Name, route1Record.CreatedAt, route1Record.UpdatedAt, route1Record.SpaceGUID, domainRecord.GUID)), "Response body matches response:")
+						]
+					}`, defaultServerURL, appGUID, route1Record.GUID, route1Record.Path, route1Record.Protocol, route1Record.Host, domainRecord.Name, route1Record.CreatedAt, route1Record.UpdatedAt, route1Record.SpaceGUID, domainRecord.GUID)), "Response body matches response:")
 				})
 			})
 
@@ -1533,7 +1533,7 @@ var _ = Describe("AppHandler", func() {
 			})
 		})
 
-		When("On the sad path and", func() {
+		When("on the sad path and", func() {
 			When("the app cannot be found", func() {
 				BeforeEach(func() {
 					appRepo.FetchAppReturns(repositories.AppRecord{}, repositories.NotFoundError{})
