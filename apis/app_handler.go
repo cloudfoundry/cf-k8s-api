@@ -45,6 +45,9 @@ type CFAppRepository interface {
 	SetAppDesiredState(context.Context, client.Client, repositories.SetAppDesiredStateMessage) (repositories.AppRecord, error)
 }
 
+//counterfeiter:generate -o fake -fake-name ScaleAppProcess . ScaleAppProcess
+type ScaleAppProcess func(ctx context.Context, client client.Client, appGUID string, processType string, scale repositories.ProcessScale) (repositories.ProcessRecord, error)
+
 type AppHandler struct {
 	logger      logr.Logger
 	serverURL   url.URL

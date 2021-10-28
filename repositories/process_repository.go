@@ -29,6 +29,18 @@ type ProcessRecord struct {
 	UpdatedAt   string
 }
 
+type ScaleProcessMessage struct {
+	GUID               string
+	SpaceGUID          string
+	ProcessScale
+}
+
+type ProcessScale struct {
+	Instances *int
+	MemoryMB *int
+	DiskMB *int
+}
+
 type HealthCheck struct {
 	Type string
 	Data HealthCheckData
