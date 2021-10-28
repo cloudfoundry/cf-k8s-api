@@ -83,6 +83,11 @@ func (r *ProcessRepository) FetchProcessesForApp(ctx context.Context, k8sClient 
 	return returnProcesses(matches)
 }
 
+func (r *ProcessRepository) ScaleProcess(ctx context.Context, k8sClient client.Client, scaleProcessMessage ScaleProcessMessage) (ProcessRecord, error) {
+	return ProcessRecord{}, nil
+}
+
+
 func filterProcessesByMetadataName(processes []workloadsv1alpha1.CFProcess, name string) []workloadsv1alpha1.CFProcess {
 	var filtered []workloadsv1alpha1.CFProcess
 	for i, process := range processes {
