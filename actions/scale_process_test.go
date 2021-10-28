@@ -2,35 +2,37 @@ package actions_test
 
 import (
 	"context"
+	"errors"
 
 	. "code.cloudfoundry.org/cf-k8s-api/actions"
 	"code.cloudfoundry.org/cf-k8s-api/actions/fake"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("ScaleProcessAction", func() {
 	const (
-		testProcessGUID = "test-process-guid"
+		testProcessGUID      = "test-process-guid"
 		testProcessSpaceGUID = "test-namespace"
 
-		initialInstances = 1
-		initialMemoryMB = 256
-		intialDiskQuotaMB = 1024
+		initialInstances   = 1
+		initialMemoryMB    = 256
+		initialDiskQuotaMB = 1024
 	)
 	var (
-		processRepo   *fake.CFProcessRepository
+		processRepo *fake.CFProcessRepository
 
 		updatedProcessRecord *repositories.ProcessRecord
 
 		scaleProcessAction *ScaleProcess
 
 		testClient *fake.Client
-		testScale *repositories.ProcessScale
+		testScale  *repositories.ProcessScale
 
 		responseRecord repositories.ProcessRecord
-		responseErr error
+		responseErr    error
 	)
 
 	BeforeEach(func() {
@@ -42,7 +44,7 @@ var _ = Describe("ScaleProcessAction", func() {
 			SpaceGUID:   testProcessSpaceGUID,
 			Instances:   initialInstances,
 			MemoryMB:    initialMemoryMB,
-			DiskQuotaMB: intialDiskQuotaMB,
+			DiskQuotaMB: initialDiskQuotaMB,
 		}, nil)
 
 		updatedProcessRecord = &repositories.ProcessRecord{
@@ -53,7 +55,7 @@ var _ = Describe("ScaleProcessAction", func() {
 			Command:     "some-command",
 			Instances:   initialInstances,
 			MemoryMB:    initialMemoryMB,
-			DiskQuotaMB: intialDiskQuotaMB,
+			DiskQuotaMB: initialDiskQuotaMB,
 			Ports:       []int32{8080},
 			HealthCheck: repositories.HealthCheck{
 				Type: "port",
@@ -67,10 +69,14 @@ var _ = Describe("ScaleProcessAction", func() {
 		}
 		processRepo.ScaleProcessReturns(*updatedProcessRecord, nil)
 
+		newInstances := 10
+		var newMemoryMB int64 = 256
+		var newDiskMB int64 = 1024
+
 		testScale = &repositories.ProcessScale{
-			Instances: nil,
-			MemoryMB:  nil,
-			DiskMB:    nil,
+			Instances: &newInstances,
+			MemoryMB:  &newMemoryMB,
+			DiskMB:    &newDiskMB,
 		}
 
 		scaleProcessAction = NewScaleProcess(processRepo)
@@ -81,14 +87,76 @@ var _ = Describe("ScaleProcessAction", func() {
 	})
 
 	When("on the happy path", func() {
-		It("fetches the process associated with the GUID", func() {
-
+		It("does not return an error", func() {
+			Expect(responseErr).ToNot(HaveOccurred())
 		})
-		It("fabricates a ProcessScaleMessage using the inputs and the process GUID and looked-up space", func() {
+		It("fetches the process associated with the GUID", func() {
+			Expect(processRepo.FetchProcessCallCount()).ToNot(BeZero())
+			_, _, processGUID := processRepo.FetchProcessArgsForCall(0)
+			Expect(processGUID).To(Equal(testProcessGUID))
+		})
 
+		It("fabricates a ProcessScaleMessage using the inputs and the process GUID and looked-up space", func() {
+			Expect(processRepo.ScaleProcessCallCount()).ToNot(BeZero())
+			_, _, scaleProcessMessage := processRepo.ScaleProcessArgsForCall(0)
+			Expect(scaleProcessMessage.GUID).To(Equal(testProcessGUID))
+			Expect(scaleProcessMessage.SpaceGUID).To(Equal(testProcessSpaceGUID))
+			Expect(scaleProcessMessage.Instances).To(Equal(testScale.Instances))
+			Expect(scaleProcessMessage.DiskMB).To(Equal(testScale.DiskMB))
+			Expect(scaleProcessMessage.MemoryMB).To(Equal(testScale.MemoryMB))
 		})
 		It("transparently returns a record from repositories.ProcessScale", func() {
+			Expect(responseRecord).To(Equal(*updatedProcessRecord))
+		})
+	})
 
+	When("there is an error fetching the process and", func() {
+		When("the error is \"not found\"", func() {
+			var (
+				toReturnErr error
+			)
+			BeforeEach(func() {
+				toReturnErr = repositories.NotFoundError{}
+				processRepo.FetchProcessReturns(repositories.ProcessRecord{}, toReturnErr)
+			})
+			It("returns an empty record", func() {
+				Expect(responseRecord).To(Equal(repositories.ProcessRecord{}))
+			})
+			It("passes through the error", func() {
+				Expect(responseErr).To(Equal(toReturnErr))
+			})
+		})
+
+		When("the error is some other error", func() {
+			var (
+				toReturnErr error
+			)
+			BeforeEach(func() {
+				toReturnErr = errors.New("some-other-error")
+				processRepo.FetchProcessReturns(repositories.ProcessRecord{}, toReturnErr)
+			})
+			It("returns an empty record", func() {
+				Expect(responseRecord).To(Equal(repositories.ProcessRecord{}))
+			})
+			It("passes through the error", func() {
+				Expect(responseErr).To(Equal(toReturnErr))
+			})
+		})
+	})
+
+	When("there is an error updating the process", func() {
+		var (
+			toReturnErr error
+		)
+		BeforeEach(func() {
+			toReturnErr = errors.New("some-other-error")
+			processRepo.ScaleProcessReturns(repositories.ProcessRecord{}, toReturnErr)
+		})
+		It("returns an empty record", func() {
+			Expect(responseRecord).To(Equal(repositories.ProcessRecord{}))
+		})
+		It("passes through the error", func() {
+			Expect(responseErr).To(Equal(toReturnErr))
 		})
 	})
 })

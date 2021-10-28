@@ -448,6 +448,7 @@ var _ = Describe("ProcessHandler", func() {
 				})
 			})
 
+			// TODO: add scale validation
 			When("the scale parameters are invalid", func() {
 
 			})

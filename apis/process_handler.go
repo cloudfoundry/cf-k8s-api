@@ -1,13 +1,13 @@
 package apis
 
 import (
-	"code.cloudfoundry.org/cf-k8s-api/payloads"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 
+	"code.cloudfoundry.org/cf-k8s-api/payloads"
 	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 
@@ -20,7 +20,7 @@ import (
 const (
 	ProcessGetEndpoint         = "/v3/processes/{guid}"
 	ProcessGetSidecarsEndpoint = "/v3/processes/{guid}/sidecars"
-	ProcessScaleEndpoint = "/v3/processes/{guid}/actions/scale"
+	ProcessScaleEndpoint       = "/v3/processes/{guid}/actions/scale"
 )
 
 //counterfeiter:generate -o fake -fake-name CFProcessRepository . CFProcessRepository
@@ -173,7 +173,6 @@ func (h *ProcessHandler) processScaleHandler(w http.ResponseWriter, r *http.Requ
 
 	w.Write(responseBody)
 }
-
 
 func (h *ProcessHandler) LogError(w http.ResponseWriter, processGUID string, err error) {
 	switch err.(type) {

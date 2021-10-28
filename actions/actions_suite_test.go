@@ -9,9 +9,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-
 var (
-	ctx       context.Context
+	ctx context.Context
 )
 
 func TestApis(t *testing.T) {
@@ -22,5 +21,3 @@ func TestApis(t *testing.T) {
 var _ = BeforeEach(func() {
 	ctx = context.Background()
 })
-
-
