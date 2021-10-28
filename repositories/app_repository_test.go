@@ -701,9 +701,8 @@ var _ = Describe("AppRepository", func() {
 					SpaceGUID:    spaceGUID,
 					DesiredState: appStartedValue,
 				})
-				returnedErr := err
 
-				Expect(returnedErr).To(MatchError(ContainSubstring("\"fake-app-guid\" not found")))
+				Expect(err).To(MatchError(ContainSubstring("\"fake-app-guid\" not found")))
 			})
 		})
 	})
