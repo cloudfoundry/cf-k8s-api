@@ -703,7 +703,7 @@ var _ = Describe("AppRepository", func() {
 				})
 				returnedErr := err
 
-				Expect(returnedErr).To(HaveOccurred())
+				Expect(returnedErr).To(MatchError(ContainSubstring("\"fake-app-guid\" not found")))
 			})
 		})
 	})
