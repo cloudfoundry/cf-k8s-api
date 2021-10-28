@@ -116,8 +116,14 @@ Docs: https://v3-apidocs.cloudfoundry.org/version/3.100.0/index.html#processes
 |--|--|
 | Get Process | GET /v3/processes/\<guid>/sidecars |
 | Get Process Sidecars | GET /v3/processes/\<guid>/sidecars |
+| Scale Process | POST /v3/processes/\<guid>/actions/scale |
 
-
+#### [Scaling Processes](https://v3-apidocs.cloudfoundry.org/version/3.107.0/index.html#scale-a-process)
+```bash
+curl "http://localhost:9000/v3/processes/<guid>/actions/scale" \
+  -X POST \
+  -d '{ "instances": 5, "memory_in_mb": 256, "disk_in_mb": 1024 }'
+```
 
 
 ### Routes
