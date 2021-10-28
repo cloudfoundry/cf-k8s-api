@@ -30,15 +30,15 @@ type ProcessRecord struct {
 }
 
 type ScaleProcessMessage struct {
-	GUID               string
-	SpaceGUID          string
+	GUID      string
+	SpaceGUID string
 	ProcessScale
 }
 
 type ProcessScale struct {
 	Instances *int
-	MemoryMB *int
-	DiskMB *int
+	MemoryMB  *int
+	DiskMB    *int
 }
 
 type HealthCheck struct {
