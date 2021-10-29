@@ -29,6 +29,7 @@ var _ = Describe("ScaleAppProcessAction", func() {
 
 		updatedProcessRecord *repositories.ProcessRecord
 
+		scaleProcessAction    *fake.ScaleProcess
 		scaleAppProcessAction *ScaleAppProcess
 
 		testClient *fake.Client
@@ -60,7 +61,16 @@ var _ = Describe("ScaleAppProcessAction", func() {
 
 		processRepo.FetchProcessesForAppReturns([]repositories.ProcessRecord{processRecord}, nil)
 
-		processRepo.FetchProcessReturns(processRecord, nil)
+		newInstances := 10
+		var newMemoryMB int64 = 256
+		var newDiskMB int64 = 1024
+
+		testScale = &repositories.ProcessScale{
+			Instances: &newInstances,
+			MemoryMB:  &newMemoryMB,
+			DiskMB:    &newDiskMB,
+		}
+		scaleProcessAction = &fake.ScaleProcess{}
 
 		updatedProcessRecord = &repositories.ProcessRecord{
 			GUID:        testProcessGUID,
@@ -81,40 +91,33 @@ var _ = Describe("ScaleAppProcessAction", func() {
 			CreatedAt:   "1906-04-18T13:12:00Z",
 			UpdatedAt:   "1906-04-18T13:12:01Z",
 		}
-		processRepo.ScaleProcessReturns(*updatedProcessRecord, nil)
+		scaleProcessAction.Returns(*updatedProcessRecord, nil)
 
-		newInstances := 10
-		var newMemoryMB int64 = 256
-		var newDiskMB int64 = 1024
-
-		testScale = &repositories.ProcessScale{
-			Instances: &newInstances,
-			MemoryMB:  &newMemoryMB,
-			DiskMB:    &newDiskMB,
-		}
-
-		scaleAppProcessAction = NewScaleAppProcess(appRepo, processRepo)
+		scaleAppProcessAction = NewScaleAppProcess(appRepo, processRepo, scaleProcessAction.Spy)
 	})
 
 	JustBeforeEach(func() {
 		responseRecord, responseErr = scaleAppProcessAction.Invoke(context.Background(), testClient, testAppGUID, processType, *testScale)
 	})
 
-	When("on the happy path", func() {
+	FWhen("on the happy path", func() {
 		It("does not return an error", func() {
 			Expect(responseErr).ToNot(HaveOccurred())
 		})
-		It("fetches the process associated with the GUID", func() {
-			Expect(processRepo.FetchProcessCallCount()).ToNot(BeZero())
-			_, _, processGUID := processRepo.FetchProcessArgsForCall(0)
-			Expect(processGUID).To(Equal(testProcessGUID))
+		It("fetches the app associated with the GUID", func() {
+			Expect(appRepo.FetchAppCallCount()).ToNot(BeZero())
+			_, _, appGUID := appRepo.FetchAppArgsForCall(0)
+			Expect(appGUID).To(Equal(testAppGUID))
 		})
-
+		It("fetches the processes associated with the App GUID", func() {
+			Expect(processRepo.FetchProcessesForAppCallCount()).ToNot(BeZero())
+			_, _, appGUID := processRepo.FetchProcessArgsForCall(0)
+			Expect(appGUID).To(Equal(testAppGUID))
+		})
 		It("fabricates a ProcessScaleMessage using the inputs and the process GUID and looked-up space", func() {
-			Expect(processRepo.ScaleProcessCallCount()).ToNot(BeZero())
-			_, _, scaleProcessMessage := processRepo.ScaleProcessArgsForCall(0)
-			Expect(scaleProcessMessage.GUID).To(Equal(testProcessGUID))
-			Expect(scaleProcessMessage.SpaceGUID).To(Equal(testProcessSpaceGUID))
+			Expect(scaleProcessAction.CallCount()).ToNot(BeZero())
+			_, _, scaleProcessGUID, scaleProcessMessage := scaleProcessAction.ArgsForCall(0)
+			Expect(scaleProcessGUID).To(Equal(testProcessGUID))
 			Expect(scaleProcessMessage.Instances).To(Equal(testScale.Instances))
 			Expect(scaleProcessMessage.DiskMB).To(Equal(testScale.DiskMB))
 			Expect(scaleProcessMessage.MemoryMB).To(Equal(testScale.MemoryMB))

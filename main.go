@@ -77,7 +77,7 @@ func main() {
 		panic(fmt.Sprintf("could not parse server URL: %v", err))
 	}
 
-	scaleProcessAction := actions.NewScaleProcess(new(repositories.ProcessRepository))
+	scaleProcessAction := actions.NewScaleAppProcess(new(repositories.ProcessRepository))
 
 	handlers := []APIHandler{
 		apis.NewRootV3Handler(config.ServerURL),

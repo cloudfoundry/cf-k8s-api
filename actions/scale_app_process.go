@@ -8,15 +8,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+//counterfeiter:generate -o fake -fake-name ScaleProcess . ScaleProcessAction
+type ScaleProcessAction func(ctx context.Context, client client.Client, processGUID string, scale repositories.ProcessScale) (repositories.ProcessRecord, error)
 type ScaleAppProcess struct {
-	appRepo     CFAppRepository
-	processRepo CFProcessRepository
+	appRepo            CFAppRepository
+	processRepo        CFProcessRepository
+	scaleProcessAction ScaleProcessAction
 }
 
-func NewScaleAppProcess(appRepo CFAppRepository, processRepo CFProcessRepository) *ScaleAppProcess {
+func NewScaleAppProcess(appRepo CFAppRepository, processRepo CFProcessRepository, scaleProcessAction ScaleProcessAction) *ScaleAppProcess {
 	return &ScaleAppProcess{
-		appRepo:     appRepo,
-		processRepo: processRepo,
+		appRepo:            appRepo,
+		processRepo:        processRepo,
+		scaleProcessAction: scaleProcessAction,
 	}
 }
 
@@ -38,16 +42,5 @@ func (a *ScaleAppProcess) Invoke(ctx context.Context, client client.Client, appG
 			break
 		}
 	}
-
-	process, err := a.processRepo.FetchProcess(ctx, client, appProcessGUID)
-	
-	if err != nil {
-		return repositories.ProcessRecord{}, err
-	}
-	scaleMessage := repositories.ScaleProcessMessage{
-		GUID:         process.GUID,
-		SpaceGUID:    process.SpaceGUID,
-		ProcessScale: scale,
-	}
-	return a.processRepo.ScaleProcess(ctx, client, scaleMessage)
+	return a.scaleProcessAction(ctx, client, appProcessGUID, scale)
 }
