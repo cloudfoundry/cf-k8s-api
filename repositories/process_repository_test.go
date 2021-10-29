@@ -268,7 +268,7 @@ var _ = Describe("ProcessRepository", func() {
 		})
 	})
 
-	FDescribe("ScaleProcess", func() {
+	Describe("ScaleProcess", func() {
 		var (
 			namespace *corev1.Namespace
 

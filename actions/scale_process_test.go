@@ -59,8 +59,7 @@ var _ = Describe("ScaleProcessAction", func() {
 			Ports:       []int32{8080},
 			HealthCheck: repositories.HealthCheck{
 				Type: "port",
-				Data: repositories.HealthCheckData{
-				},
+				Data: repositories.HealthCheckData{},
 			},
 			Labels:      nil,
 			Annotations: nil,
