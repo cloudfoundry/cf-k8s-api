@@ -124,7 +124,7 @@ func filterProcessesByMetadataName(processes []workloadsv1alpha1.CFProcess, name
 
 func returnProcess(processes []workloadsv1alpha1.CFProcess) (ProcessRecord, error) {
 	if len(processes) == 0 {
-		return ProcessRecord{}, NotFoundError{}
+		return ProcessRecord{}, NotFoundError{ResourceType: "Process"}
 	}
 	if len(processes) > 1 {
 		return ProcessRecord{}, errors.New("duplicate processes exist")
