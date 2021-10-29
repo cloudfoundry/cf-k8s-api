@@ -8,12 +8,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-//counterfeiter:generate -o fake -fake-name CFProcessRepository . CFProcessRepository
-type CFProcessRepository interface {
-	FetchProcess(context.Context, client.Client, string) (repositories.ProcessRecord, error)
-	ScaleProcess(context.Context, client.Client, repositories.ScaleProcessMessage) (repositories.ProcessRecord, error)
-}
-
 type ScaleProcess struct {
 	processRepo CFProcessRepository
 }

@@ -8,24 +8,39 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-//counterfeiter:generate -o fake -fake-name CFProcessRepository . CFProcessRepository
-type CFProcessRepository interface {
-	FetchProcess(context.Context, client.Client, string) (repositories.ProcessRecord, error)
-	ScaleProcess(context.Context, client.Client, repositories.ScaleProcessMessage) (repositories.ProcessRecord, error)
-}
-
-type ScaleProcess struct {
+type ScaleAppProcess struct {
+	appRepo     CFAppRepository
 	processRepo CFProcessRepository
 }
 
-func NewScaleProcess(processRepo CFProcessRepository) *ScaleProcess {
-	return &ScaleProcess{
+func NewScaleAppProcess(appRepo CFAppRepository, processRepo CFProcessRepository) *ScaleAppProcess {
+	return &ScaleAppProcess{
+		appRepo:     appRepo,
 		processRepo: processRepo,
 	}
 }
 
-func (a *ScaleProcess) Invoke(ctx context.Context, client client.Client, processGUID string, scale repositories.ProcessScale) (repositories.ProcessRecord, error) {
-	process, err := a.processRepo.FetchProcess(ctx, client, processGUID)
+func (a *ScaleAppProcess) Invoke(ctx context.Context, client client.Client, appGUID string, processType string, scale repositories.ProcessScale) (repositories.ProcessRecord, error) {
+	app, err := a.appRepo.FetchApp(ctx, client, appGUID)
+	if err != nil {
+		return repositories.ProcessRecord{}, err
+	}
+
+	appProcesses, err := a.processRepo.FetchProcessesForApp(ctx, client, app.GUID, app.SpaceGUID)
+	if err != nil {
+		return repositories.ProcessRecord{}, err
+	}
+
+	var appProcessGUID string
+	for _, v := range appProcesses {
+		if v.Type == processType {
+			appProcessGUID = v.GUID
+			break
+		}
+	}
+
+	process, err := a.processRepo.FetchProcess(ctx, client, appProcessGUID)
+	
 	if err != nil {
 		return repositories.ProcessRecord{}, err
 	}

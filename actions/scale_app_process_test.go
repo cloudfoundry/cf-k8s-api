@@ -12,8 +12,9 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("ScaleProcessAction", func() {
+var _ = Describe("ScaleAppProcessAction", func() {
 	const (
+		testAppGUID          = "test-app-guid"
 		testProcessGUID      = "test-process-guid"
 		testProcessSpaceGUID = "test-namespace"
 
@@ -22,11 +23,13 @@ var _ = Describe("ScaleProcessAction", func() {
 		initialDiskQuotaMB = 1024
 	)
 	var (
+		appRepo     *fake.CFAppRepository
 		processRepo *fake.CFProcessRepository
+		processType string
 
 		updatedProcessRecord *repositories.ProcessRecord
 
-		scaleProcessAction *ScaleProcess
+		scaleAppProcessAction *ScaleAppProcess
 
 		testClient *fake.Client
 		testScale  *repositories.ProcessScale
@@ -36,22 +39,34 @@ var _ = Describe("ScaleProcessAction", func() {
 	)
 
 	BeforeEach(func() {
+		appRepo = new(fake.CFAppRepository)
 		processRepo = new(fake.CFProcessRepository)
+		processType = "web"
 		testClient = new(fake.Client)
 
-		processRepo.FetchProcessReturns(repositories.ProcessRecord{
+		processRecord := repositories.ProcessRecord{
 			GUID:        testProcessGUID,
 			SpaceGUID:   testProcessSpaceGUID,
 			Instances:   initialInstances,
 			MemoryMB:    initialMemoryMB,
 			DiskQuotaMB: initialDiskQuotaMB,
+		}
+
+		appRepo.FetchAppReturns(repositories.AppRecord{
+			Name:      testAppGUID,
+			GUID:      testAppGUID,
+			SpaceGUID: testProcessSpaceGUID,
 		}, nil)
+
+		processRepo.FetchProcessesForAppReturns([]repositories.ProcessRecord{processRecord}, nil)
+
+		processRepo.FetchProcessReturns(processRecord, nil)
 
 		updatedProcessRecord = &repositories.ProcessRecord{
 			GUID:        testProcessGUID,
 			SpaceGUID:   testProcessSpaceGUID,
-			AppGUID:     "some-app-guid",
-			Type:        "web",
+			AppGUID:     testAppGUID,
+			Type:        processType,
 			Command:     "some-command",
 			Instances:   initialInstances,
 			MemoryMB:    initialMemoryMB,
@@ -78,11 +93,11 @@ var _ = Describe("ScaleProcessAction", func() {
 			DiskMB:    &newDiskMB,
 		}
 
-		scaleProcessAction = NewScaleProcess(processRepo)
+		scaleAppProcessAction = NewScaleAppProcess(appRepo, processRepo)
 	})
 
 	JustBeforeEach(func() {
-		responseRecord, responseErr = scaleProcessAction.Invoke(context.Background(), testClient, testProcessGUID, *testScale)
+		responseRecord, responseErr = scaleAppProcessAction.Invoke(context.Background(), testClient, testAppGUID, processType, *testScale)
 	})
 
 	When("on the happy path", func() {
