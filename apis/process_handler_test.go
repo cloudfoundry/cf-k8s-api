@@ -450,28 +450,6 @@ var _ = Describe("ProcessHandler", func() {
 				})
 			})
 
-			// TODO: add scale validation
-			When("the scale parameters are invalid", func() {
-				FDescribeTable("returns validation",
-					func(requestBody string, valid bool) {
-						var rr *httptest.ResponseRecorder = httptest.NewRecorder()
-						queuePostRequest(requestBody)
-						router.ServeHTTP(rr, req)
-						if valid {
-							Expect(rr.Code).To(Equal(http.StatusOK))
-						} else {
-							Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity))
-						}
-					},
-					Entry("instances is negative", `{"instances":-1}`, false),
-					Entry("memory is not a positive integer", `{"memory_in_mb":0}`, false),
-					Entry("disk is not a positive integer", `{"disk_in_mb":0}`, false),
-					Entry("instances is zero", `{"instances":0}`, true),
-					Entry("memory is a positive integer", `{"memory_in_mb":1024}`, true),
-					Entry("disk is a positive integer", `{"disk_in_mb":1024}`, true),
-				)
-			})
-
 			When("the process doesn't exist", func() {
 				BeforeEach(func() {
 					scaleProcessFunc.Returns(repositories.ProcessRecord{}, repositories.NotFoundError{})
@@ -491,6 +469,23 @@ var _ = Describe("ProcessHandler", func() {
 					expectUnknownError()
 				})
 			})
+		})
+
+		When("the validating scale parameters", func() {
+			DescribeTable("returns validation",
+				func(requestBody string, status int) {
+					var tableTestRecorder *httptest.ResponseRecorder = httptest.NewRecorder()
+					queuePostRequest(requestBody)
+					router.ServeHTTP(tableTestRecorder, req)
+					Expect(tableTestRecorder.Code).To(Equal(status))
+				},
+				Entry("instances is negative", `{"instances":-1}`, http.StatusUnprocessableEntity),
+				Entry("memory is not a positive integer", `{"memory_in_mb":0}`, http.StatusUnprocessableEntity),
+				Entry("disk is not a positive integer", `{"disk_in_mb":0}`, http.StatusUnprocessableEntity),
+				Entry("instances is zero", `{"instances":0}`, http.StatusOK),
+				Entry("memory is a positive integer", `{"memory_in_mb":1024}`, http.StatusOK),
+				Entry("disk is a positive integer", `{"disk_in_mb":1024}`, http.StatusOK),
+			)
 		})
 	})
 })
