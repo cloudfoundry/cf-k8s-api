@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 
 	. "code.cloudfoundry.org/cf-k8s-api/apis"
@@ -11,6 +12,7 @@ import (
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/rest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -236,17 +238,17 @@ var _ = Describe("ProcessHandler", func() {
 
 	Describe("the POST /v3/processes/:guid/actions/scale endpoint", func() {
 		const (
-			processGUID     = "process-guid"
-			spaceGUID       = "space-guid"
-			appGUID         = "app-guid"
-			createdAt       = "1906-04-18T13:12:00Z"
-			updatedAt       = "1906-04-18T13:12:01Z"
-			processType     = "web"
-			command         = "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"
-			memoryInMB      = 256
-			diskInMB        = 1024
-			healthcheckType = "port"
-			instances       = 5
+			processGUID           = "process-guid"
+			spaceGUID             = "space-guid"
+			appGUID               = "app-guid"
+			createdAt             = "1906-04-18T13:12:00Z"
+			updatedAt             = "1906-04-18T13:12:01Z"
+			processType           = "web"
+			command               = "bundle exec rackup config.ru -p $PORT -o 0.0.0.0"
+			memoryInMB      int64 = 256
+			diskInMB        int64 = 1024
+			healthcheckType       = "port"
+			instances             = 5
 
 			baseURL = "https://api.example.org"
 		)
@@ -450,7 +452,24 @@ var _ = Describe("ProcessHandler", func() {
 
 			// TODO: add scale validation
 			When("the scale parameters are invalid", func() {
-
+				FDescribeTable("returns validation",
+					func(requestBody string, valid bool) {
+						var rr *httptest.ResponseRecorder = httptest.NewRecorder()
+						queuePostRequest(requestBody)
+						router.ServeHTTP(rr, req)
+						if valid {
+							Expect(rr.Code).To(Equal(http.StatusOK))
+						} else {
+							Expect(rr.Code).To(Equal(http.StatusUnprocessableEntity))
+						}
+					},
+					Entry("instances is negative", `{"instances":-1}`, false),
+					Entry("memory is not a positive integer", `{"memory_in_mb":0}`, false),
+					Entry("disk is not a positive integer", `{"disk_in_mb":0}`, false),
+					Entry("instances is zero", `{"instances":0}`, true),
+					Entry("memory is a positive integer", `{"memory_in_mb":1024}`, true),
+					Entry("disk is a positive integer", `{"disk_in_mb":1024}`, true),
+				)
 			})
 
 			When("the process doesn't exist", func() {
