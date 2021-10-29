@@ -86,6 +86,7 @@ func (f *AppRepo) FetchApp(ctx context.Context, client client.Client, appGUID st
 }
 
 func (f *AppRepo) CreateApp(ctx context.Context, client client.Client, appRecord AppRecord) (AppRecord, error) {
+        // TODO: A comment to see if merges work across subtrees
 	cfApp := appRecordToCFApp(appRecord)
 	err := client.Create(ctx, &cfApp)
 	if err != nil {
