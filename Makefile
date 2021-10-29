@@ -56,7 +56,7 @@ undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/confi
 	$(KUSTOMIZE) build config/base | kubectl delete -f -
 
 docker-build: ## Build docker image with the manager.
-	docker build -t ${IMG} .
+	DOCKER_BUILDKIT=1 docker build -t ${IMG} .
 
 docker-push: ## Push docker image with the manager.
 	docker push ${IMG}
