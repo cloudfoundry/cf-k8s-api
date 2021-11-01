@@ -76,8 +76,8 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("could not parse server URL: %v", err))
 	}
-
-	scaleProcessAction := actions.NewScaleAppProcess(new(repositories.ProcessRepository))
+	scaleProcessAction := actions.NewScaleProcess(new(repositories.ProcessRepository))
+	scaleAppProcessAction := actions.NewScaleAppProcess(new(repositories.AppRepo), new(repositories.ProcessRepository), scaleProcessAction.Invoke)
 
 	handlers := []APIHandler{
 		apis.NewRootV3Handler(config.ServerURL),
@@ -94,6 +94,7 @@ func main() {
 			new(repositories.ProcessRepository),
 			new(repositories.RouteRepo),
 			new(repositories.DomainRepo),
+			scaleAppProcessAction.Invoke,
 			repositories.BuildCRClient,
 			k8sClientConfig,
 		),

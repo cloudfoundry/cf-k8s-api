@@ -48,6 +48,9 @@ var _ = Describe("ScaleAppProcessAction", func() {
 		processRecord := repositories.ProcessRecord{
 			GUID:        testProcessGUID,
 			SpaceGUID:   testProcessSpaceGUID,
+			AppGUID:     testAppGUID,
+			Type:        processType,
+			Command:     "some command",
 			Instances:   initialInstances,
 			MemoryMB:    initialMemoryMB,
 			DiskQuotaMB: initialDiskQuotaMB,
@@ -100,7 +103,7 @@ var _ = Describe("ScaleAppProcessAction", func() {
 		responseRecord, responseErr = scaleAppProcessAction.Invoke(context.Background(), testClient, testAppGUID, processType, *testScale)
 	})
 
-	FWhen("on the happy path", func() {
+	When("on the happy path", func() {
 		It("does not return an error", func() {
 			Expect(responseErr).ToNot(HaveOccurred())
 		})
@@ -111,8 +114,9 @@ var _ = Describe("ScaleAppProcessAction", func() {
 		})
 		It("fetches the processes associated with the App GUID", func() {
 			Expect(processRepo.FetchProcessesForAppCallCount()).ToNot(BeZero())
-			_, _, appGUID := processRepo.FetchProcessArgsForCall(0)
+			_, _, appGUID, calledNamespace := processRepo.FetchProcessesForAppArgsForCall(0)
 			Expect(appGUID).To(Equal(testAppGUID))
+			Expect(calledNamespace).To(Equal(testProcessSpaceGUID))
 		})
 		It("fabricates a ProcessScaleMessage using the inputs and the process GUID and looked-up space", func() {
 			Expect(scaleProcessAction.CallCount()).ToNot(BeZero())
@@ -127,14 +131,14 @@ var _ = Describe("ScaleAppProcessAction", func() {
 		})
 	})
 
-	When("there is an error fetching the process and", func() {
+	When("there is an error fetching the app and", func() {
 		When("the error is \"not found\"", func() {
 			var (
 				toReturnErr error
 			)
 			BeforeEach(func() {
-				toReturnErr = repositories.NotFoundError{}
-				processRepo.FetchProcessReturns(repositories.ProcessRecord{}, toReturnErr)
+				toReturnErr = repositories.NotFoundError{ResourceType: "App"}
+				appRepo.FetchAppReturns(repositories.AppRecord{}, toReturnErr)
 			})
 			It("returns an empty record", func() {
 				Expect(responseRecord).To(Equal(repositories.ProcessRecord{}))
@@ -150,7 +154,25 @@ var _ = Describe("ScaleAppProcessAction", func() {
 			)
 			BeforeEach(func() {
 				toReturnErr = errors.New("some-other-error")
-				processRepo.FetchProcessReturns(repositories.ProcessRecord{}, toReturnErr)
+				appRepo.FetchAppReturns(repositories.AppRecord{}, toReturnErr)
+			})
+			It("returns an empty record", func() {
+				Expect(responseRecord).To(Equal(repositories.ProcessRecord{}))
+			})
+			It("passes through the error", func() {
+				Expect(responseErr).To(Equal(toReturnErr))
+			})
+		})
+	})
+
+	When("there is an error fetching the processes for an app and", func() {
+		When("the error is some other error", func() {
+			var (
+				toReturnErr error
+			)
+			BeforeEach(func() {
+				toReturnErr = errors.New("some-other-error")
+				processRepo.FetchProcessesForAppReturns([]repositories.ProcessRecord{}, toReturnErr)
 			})
 			It("returns an empty record", func() {
 				Expect(responseRecord).To(Equal(repositories.ProcessRecord{}))
@@ -162,18 +184,37 @@ var _ = Describe("ScaleAppProcessAction", func() {
 	})
 
 	When("there is an error updating the process", func() {
-		var (
-			toReturnErr error
-		)
-		BeforeEach(func() {
-			toReturnErr = errors.New("some-other-error")
-			processRepo.ScaleProcessReturns(repositories.ProcessRecord{}, toReturnErr)
+
+		When("the error is \"not found\"", func() {
+			var (
+				toReturnErr error
+			)
+			BeforeEach(func() {
+				toReturnErr = repositories.NotFoundError{ResourceType: "Process"}
+				scaleProcessAction.Returns(repositories.ProcessRecord{}, toReturnErr)
+			})
+			It("returns an empty record", func() {
+				Expect(responseRecord).To(Equal(repositories.ProcessRecord{}))
+			})
+			It("passes through the error", func() {
+				Expect(responseErr).To(Equal(toReturnErr))
+			})
 		})
-		It("returns an empty record", func() {
-			Expect(responseRecord).To(Equal(repositories.ProcessRecord{}))
-		})
-		It("passes through the error", func() {
-			Expect(responseErr).To(Equal(toReturnErr))
+
+		When("the error is some other error", func() {
+			var (
+				toReturnErr error
+			)
+			BeforeEach(func() {
+				toReturnErr = errors.New("some-other-error")
+				scaleProcessAction.Returns(repositories.ProcessRecord{}, toReturnErr)
+			})
+			It("returns an empty record", func() {
+				Expect(responseRecord).To(Equal(repositories.ProcessRecord{}))
+			})
+			It("passes through the error", func() {
+				Expect(responseErr).To(Equal(toReturnErr))
+			})
 		})
 	})
 })
