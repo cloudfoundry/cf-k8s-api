@@ -2,12 +2,15 @@ package e2e_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
+	"code.cloudfoundry.org/cf-k8s-api/presenter"
 	"code.cloudfoundry.org/cf-k8s-api/repositories"
 	"github.com/hashicorp/go-uuid"
 	"github.com/matt-royal/biloba"
@@ -43,9 +46,10 @@ func TestE2E(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
+	SetDefaultEventuallyTimeout(30 * time.Second)
 	apiServerRoot = mustHaveEnv("API_SERVER_ROOT")
 
-	logf.SetLogger(zap.New(zap.WriteTo(os.Stderr), zap.UseDevMode(true)))
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	hnsv1alpha2.AddToScheme(scheme.Scheme)
 
@@ -137,6 +141,12 @@ func deleteSubnamespace(parent, name string) {
 	}
 	err := k8sClient.Delete(ctx, &anchor)
 	Expect(err).NotTo(HaveOccurred())
+
+	Eventually(func() bool {
+		err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&anchor), &anchor)
+
+		return errors.IsNotFound(err)
+	}).Should(BeTrue())
 }
 
 func deleteSubnamespaceByLabel(parentNS, label string) {
@@ -144,4 +154,47 @@ func deleteSubnamespaceByLabel(parentNS, label string) {
 
 	err := k8sClient.DeleteAllOf(ctx, &hnsv1alpha2.SubnamespaceAnchor{}, client.MatchingLabels{repositories.OrgNameLabel: label}, client.InNamespace(parentNS))
 	Expect(err).NotTo(HaveOccurred())
+}
+
+func createOrg(orgName string) presenter.OrgResponse {
+	orgsUrl := apiServerRoot + "/v3/organizations"
+	body := fmt.Sprintf(`{ "name": "%s" }`, orgName)
+	req, err := http.NewRequest(http.MethodPost, orgsUrl, strings.NewReader(body))
+	Expect(err).NotTo(HaveOccurred())
+
+	resp, err := http.DefaultClient.Do(req)
+	Expect(err).NotTo(HaveOccurred())
+	defer resp.Body.Close()
+
+	org := presenter.OrgResponse{}
+	err = json.NewDecoder(resp.Body).Decode(&org)
+	Expect(err).NotTo(HaveOccurred())
+
+	return org
+}
+
+func createSpace(spaceName, orgGUID string) presenter.SpaceResponse {
+	spacesURL := apiServerRoot + "/v3/spaces"
+	body := fmt.Sprintf(`{
+                "name": "%s",
+                "relationships": {
+                  "organization": {
+                    "data": {
+                      "guid": "%s"
+                    }
+                  }
+                }
+            }`, spaceName, orgGUID)
+	req, err := http.NewRequest(http.MethodPost, spacesURL, strings.NewReader(body))
+	Expect(err).NotTo(HaveOccurred())
+
+	resp, err := http.DefaultClient.Do(req)
+	Expect(err).NotTo(HaveOccurred())
+	defer resp.Body.Close()
+
+	space := presenter.SpaceResponse{}
+	err = json.NewDecoder(resp.Body).Decode(&space)
+	Expect(err).NotTo(HaveOccurred())
+
+	return space
 }
