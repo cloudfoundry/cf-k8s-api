@@ -16,7 +16,7 @@ SHELL = /usr/bin/env bash -o pipefail
 
 .DEFAULT_GOAL := test
 
-.PHONY: hnc-install test test-e2e kustomize docker-build docker-push fmt vet build-reference
+.PHONY: test test-e2e kustomize docker-build docker-push fmt vet build-reference
 
 fmt: ## Run go fmt against code.
 	go fmt ./...
@@ -24,8 +24,13 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet ./...
 
-test: fmt vet ## Run tests.
-	./scripts/test
+test: test-unit test-integration test-e2e
+
+test-unit: fmt vet
+	./scripts/test -skipPackage=test
+
+test-integration:
+	./scripts/test tests/integration
 
 test-e2e:
 	./scripts/test tests/e2e
@@ -45,7 +50,7 @@ deploy: kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/c
 
 deploy-kind: kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/base && $(KUSTOMIZE) edit set image cloudfoundry/cf-k8s-api=${IMG}
-	$(KUSTOMIZE) build config/overlays/kind | kubectl apply -f -
+	$(KUSTOMIZE) build config/overlays/kind-auth-enabled | kubectl apply -f -
 
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/base | kubectl delete -f -
@@ -71,9 +76,6 @@ kustomize: ## Download kustomize locally if necessary.
 GINKGO = $(shell pwd)/bin/ginkgo
 ginkgo:
 	$(call go-get-tool,$(GINKGO),github.com/onsi/ginkgo/ginkgo@latest)
-
-hnc-install:
-	./scripts/install-hnc.sh
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
