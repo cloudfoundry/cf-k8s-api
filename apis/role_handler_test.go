@@ -38,12 +38,7 @@ var _ = Describe("RoleHandler", func() {
 	})
 
 	Describe("Create Role", func() {
-		makePostRequest := func(requestBody string) {
-			req, err := http.NewRequestWithContext(ctx, "POST", orgsBase, strings.NewReader(requestBody))
-			Expect(err).NotTo(HaveOccurred())
-
-			router.ServeHTTP(rr, req)
-		}
+		var createRoleRequestBody string
 
 		BeforeEach(func() {
 			roleRepo.CreateSpaceRoleStub = func(_ context.Context, role repositories.RoleRecord) (repositories.RoleRecord, error) {
@@ -53,31 +48,35 @@ var _ = Describe("RoleHandler", func() {
 
 				return role, nil
 			}
+
+			createRoleRequestBody = `{
+                "type": "space_developer",
+                "relationships": {
+                  "user": {
+                    "data": {
+                      "guid": "my-user"
+                    }
+                  },
+                  "space": {
+                    "data": {
+                      "guid": "my-space"
+                    }
+                  }
+                }
+              }`
 		})
 
-		When("happy path", func() {
-			BeforeEach(func() {
-				makePostRequest(`{
-          "type": "space_developer",
-          "relationships": {
-            "user": {
-              "data": {
-                "guid": "my-user"
-              }
-            },
-            "space": {
-              "data": {
-                "guid": "my-space"
-              }
-            }
-          }
-        }`)
-			})
+		JustBeforeEach(func() {
+			req, err := http.NewRequestWithContext(ctx, "POST", orgsBase, strings.NewReader(createRoleRequestBody))
+			Expect(err).NotTo(HaveOccurred())
 
-			It("returns 201 with appropriate success JSON", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-				Expect(rr).To(HaveHTTPBody(MatchJSON(fmt.Sprintf(`{
+			router.ServeHTTP(rr, req)
+		})
+
+		It("returns 201 with appropriate success JSON", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(MatchJSON(fmt.Sprintf(`{
           "guid": "t-h-e-r-o-l-e",
 					"created_at": "2021-09-17T15:23:10Z",
 					"updated_at": "2021-09-17T15:23:10Z",
@@ -106,25 +105,26 @@ var _ = Describe("RoleHandler", func() {
 						}
 					}
 				}`, defaultServerURL))))
-			})
-
-			It("invokes the role repo create function with expected parameters", func() {
-				Expect(roleRepo.CreateSpaceRoleCallCount()).To(Equal(1))
-				_, roleRecord := roleRepo.CreateSpaceRoleArgsForCall(0)
-				Expect(roleRecord.Type).To(Equal("space_developer"))
-				Expect(roleRecord.Space).To(Equal("my-space"))
-				Expect(roleRecord.User).To(Equal("my-user"))
-			})
 		})
 
-		When("the org repo returns a uniqueness error", func() {
+		It("invokes the role repo create function with expected parameters", func() {
+			Expect(roleRepo.CreateSpaceRoleCallCount()).To(Equal(1))
+			_, roleRecord := roleRepo.CreateSpaceRoleArgsForCall(0)
+			Expect(roleRecord.Type).To(Equal("space_developer"))
+			Expect(roleRecord.Space).To(Equal("my-space"))
+			Expect(roleRecord.User).To(Equal("my-user"))
+		})
+
+		XWhen("the org repo returns a uniqueness error", func() {
 			// TODO
+			It("does something", func() {
+				Expect(true).To(BeFalse())
+			})
 		})
 
 		When("the org repo returns another error", func() {
 			BeforeEach(func() {
 				roleRepo.CreateSpaceRoleReturns(repositories.RoleRecord{}, errors.New("boom"))
-				makePostRequest(`{"guid": "t-h-e-r-o-l-e"}`)
 			})
 
 			It("returns unknown error", func() {
@@ -134,7 +134,7 @@ var _ = Describe("RoleHandler", func() {
 
 		When("the request body is invalid json", func() {
 			BeforeEach(func() {
-				makePostRequest(`{`)
+				createRoleRequestBody = "{"
 			})
 
 			It("returns a status 400 with appropriate error JSON", func() {
@@ -154,7 +154,7 @@ var _ = Describe("RoleHandler", func() {
 
 		When("the request body has an unknown field", func() {
 			BeforeEach(func() {
-				makePostRequest(`{"description" : "Invalid Request"}`)
+				createRoleRequestBody = `{"who-am-i":"dunno"}`
 			})
 
 			It("returns a status 422 with appropriate error JSON", func() {
@@ -164,7 +164,7 @@ var _ = Describe("RoleHandler", func() {
                     "errors": [
                     {
                         "title": "CF-UnprocessableEntity",
-                        "detail": "invalid request body: json: unknown field \"description\"",
+                        "detail": "invalid request body: json: unknown field \"who-am-i\"",
                         "code": 10008
                     }
                     ]
@@ -174,7 +174,20 @@ var _ = Describe("RoleHandler", func() {
 
 		When("the request body is invalid with missing required name field", func() {
 			BeforeEach(func() {
-				makePostRequest(`{"metadata": {"labels": {"foo": "bar"}}}`)
+				createRoleRequestBody = `{
+                    "relationships": {
+                      "user": {
+                        "data": {
+                          "guid": "my-user"
+                        }
+                      },
+                      "space": {
+                        "data": {
+                          "guid": "my-space"
+                        }
+                      }
+                    }
+                  }`
 			})
 
 			It("returns a status 422 with appropriate error message json", func() {
@@ -184,7 +197,7 @@ var _ = Describe("RoleHandler", func() {
                     "errors": [
                     {
                         "title": "CF-UnprocessableEntity",
-                        "detail": "Name is a required field",
+                        "detail": "Type is a required field",
                         "code": 10008
                     }
                     ]

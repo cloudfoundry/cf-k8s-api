@@ -43,29 +43,29 @@ func (h *RoleHandler) roleCreateHandler(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Content-Type", "application/json")
 
 	var payload payloads.RoleCreate
-	DecodeAndValidatePayload(r, &payload)
-	// rme := DecodeAndValidatePayload(r, &payload)
-	// if rme != nil {
-	// 	writeErrorResponse(w, rme)
+	rme := DecodeAndValidatePayload(r, &payload)
+	if rme != nil {
+		h.logger.Error(rme, "Failed to parse body")
+		writeErrorResponse(w, rme)
 
-	// 	return
-	// }
+		return
+	}
 
 	role := payload.ToRecord()
 	role.GUID = uuid.NewString()
 
-	record, _ := h.roleRepo.CreateSpaceRole(r.Context(), role)
-	// if err != nil {
-	// 	if workloads.HasErrorCode(err, workloads.DuplicateOrgNameError) {
-	// 		errorDetail := fmt.Sprintf("Organization '%s' already exists.", org.Name)
-	// 		h.logger.Info(errorDetail)
-	// 		writeUnprocessableEntityError(w, errorDetail)
-	// 		return
-	// 	}
-	// 	h.logger.Error(err, "Failed to create org", "Org Name", payload.Name)
-	// 	writeUnknownErrorResponse(w)
-	// 	return
-	// }
+	record, err := h.roleRepo.CreateSpaceRole(r.Context(), role)
+	if err != nil {
+		// if workloads.HasErrorCode(err, workloads.DuplicateSpaceRoleError) {
+		// 	errorDetail := fmt.Sprintf("User %q has already the %q role assigned in space %q.", role.User, role.Type, role.Space)
+		// 	h.logger.Info(errorDetail)
+		// 	writeUnprocessableEntityError(w, errorDetail)
+		// 	return
+		// }
+		h.logger.Error(err, "Failed to create role", "Role Type", role.Type, "Space", role.Space, "User", role.User)
+		writeUnknownErrorResponse(w)
+		return
+	}
 
 	w.WriteHeader(http.StatusCreated)
 	roleResponse := presenter.ForCreateRole(record, h.apiBaseURL)
