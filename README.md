@@ -1,3 +1,7 @@
+# NOTICE
+## This repository has been merged into [cf-k8s-controllers](https://github.com/cloudfoundry/cf-k8s-controllers) and will be archived.
+### Open issues have been moved and further development will proceed in the controllers repository.
+
 # cf-k8s-api
 This repository contains what we call the "CF API Shim", an experimental implementation of the V3 Cloud Foundry API that is backed entirely by Kubernetes [custom resources](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/).
 
